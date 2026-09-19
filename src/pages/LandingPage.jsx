@@ -1,6 +1,22 @@
 import React from 'react';
 
-export default function LandingPage({ setMainPage, setAppView }) {
+export default function LandingPage({ setMainPage, setAppView, openAuth }) {
+    const handleGetStarted = () => {
+        if (openAuth) {
+            openAuth('signup');
+        } else {
+            setMainPage('login');
+        }
+    };
+
+    const handleSignIn = () => {
+        if (openAuth) {
+            openAuth('login');
+        } else {
+            setMainPage('login');
+        }
+    };
+
     return (
         <div className="flex-1 overflow-y-auto bg-slate-50">
             <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200">
@@ -23,10 +39,10 @@ export default function LandingPage({ setMainPage, setAppView }) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setMainPage('login')} className="text-sm font-semibold text-slate-700 hover:text-brand-600 px-4 py-2 rounded-xl transition border border-slate-200 hover:border-slate-300 bg-white">
+                        <button onClick={handleSignIn} className="text-sm font-semibold text-slate-700 hover:text-brand-600 px-4 py-2 rounded-xl transition border border-slate-200 hover:border-slate-300 bg-white">
                             Sign In
                         </button>
-                        <button onClick={() => setAppView('dashboard')} className="text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition">
+                        <button onClick={handleGetStarted} className="text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition">
                             Get Started
                         </button>
                     </div>
@@ -48,10 +64,10 @@ export default function LandingPage({ setMainPage, setAppView }) {
                             </p>
 
                             <div className="flex flex-wrap items-center gap-4 pt-2">
-                                <button onClick={() => setAppView('dashboard')} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3.5 rounded-xl shadow-xl shadow-brand-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5">
+                                <button onClick={handleGetStarted} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3.5 rounded-xl shadow-xl shadow-brand-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5">
                                     Get Started <i className="fa-solid fa-arrow-right text-xs"></i>
                                 </button>
-                                <button onClick={() => setAppView('contract-details')} className="bg-white hover:bg-slate-100 text-slate-800 font-semibold px-6 py-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2 transition">
+                                <button onClick={handleSignIn} className="bg-white hover:bg-slate-100 text-slate-800 font-semibold px-6 py-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2 transition">
                                     <i className="fa-regular fa-circle-play text-brand-600 text-lg"></i> Watch Demo
                                 </button>
                             </div>

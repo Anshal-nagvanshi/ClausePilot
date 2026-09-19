@@ -41,6 +41,12 @@ export default function Dashboard({ setAppView }) {
                     <p className="text-xs text-slate-500 mt-0.5">Here's what's happening with your contracts today.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setAppView('upload')}
+                        className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-md shadow-brand-500/20 transition flex items-center gap-1.5"
+                    >
+                        <i className="fa-solid fa-cloud-arrow-up"></i> Upload Contract
+                    </button>
                     <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm flex items-center gap-2">
                         <i className="fa-regular fa-calendar text-slate-400"></i>
                         <span>Mon, Sep 15, 2026</span>

@@ -13,7 +13,7 @@ import AskAI from '../pages/AskAI';
 import Reports from '../pages/Reports';
 import Settings from '../pages/Settings';
 
-export default function AppLayout({ appView, setAppView, switchMainPage }) {
+export default function AppLayout({ appView, setAppView, switchMainPage, user }) {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
     return (
@@ -26,6 +26,7 @@ export default function AppLayout({ appView, setAppView, switchMainPage }) {
                     switchMainPage={switchMainPage}
                     isUserMenuOpen={isUserMenuOpen}
                     setIsUserMenuOpen={setIsUserMenuOpen}
+                    user={user}
                 />
 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
