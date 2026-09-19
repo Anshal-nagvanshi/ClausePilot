@@ -352,8 +352,8 @@ The project should follow these security practices:
 
 | Name | Role |
 |------|------|
-| Anshal | AI Integration & Full-Stack Development |
-| Teammate | Development & Project Collaboration |
+| Anshal |  Full-Stack Development |
+| Vikesh | Development & AI Integration |
 
 ---
 
