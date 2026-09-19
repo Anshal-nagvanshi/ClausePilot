@@ -1,4 +1,5 @@
 import React from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, setIsUserMenuOpen }) {
     return (
@@ -55,7 +56,15 @@ export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, 
 
                                 <div className="border-t border-slate-100 py-1">
                                     <button
-                                        onClick={() => { switchMainPage && switchMainPage('login'); setIsUserMenuOpen(false); }}
+                                        onClick={async () => { 
+                                            try {
+                                                await supabase.auth.signOut();
+                                            } catch (e) {
+                                                console.error('Sign out error:', e);
+                                            }
+                                            switchMainPage && switchMainPage('login'); 
+                                            setIsUserMenuOpen(false); 
+                                        }}
                                         className="w-full px-4 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-2.5 transition"
                                     >
                                         <i className="fa-solid fa-right-from-bracket text-rose-500 w-4 text-center"></i> Log Out
