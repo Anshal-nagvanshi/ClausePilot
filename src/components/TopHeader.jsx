@@ -1,16 +1,16 @@
 import React from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, setIsUserMenuOpen, user }) {
-    const displayName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'John Doe');
-    const displayEmail = user?.email || 'john@company.com';
+export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, setIsUserMenuOpen, user, handleLogout, alertCount = 0 }) {
+    const displayName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'User');
+    const displayEmail = user?.email || '';
     const initials = displayName
         .split(' ')
         .filter(Boolean)
         .map(n => n[0])
         .join('')
         .substring(0, 2)
-        .toUpperCase() || 'JD';
+        .toUpperCase() || 'U';
 
     return (
         <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4 z-10">
@@ -21,9 +21,15 @@ export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, 
             </div>
 
             <div className="flex items-center gap-4">
-                <button onClick={() => setAppView('alerts')} className="relative text-slate-500 hover:text-slate-800 p-2 rounded-lg hover:bg-slate-100">
+                <button
+                    onClick={() => setAppView('alerts')}
+                    className="relative text-slate-500 hover:text-slate-800 p-2 rounded-lg hover:bg-slate-100 transition"
+                    title={alertCount > 0 ? `${alertCount} active alert${alertCount > 1 ? 's' : ''}` : 'No active alerts'}
+                >
                     <i className="fa-regular fa-bell text-base"></i>
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+                    {alertCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+                    )}
                 </button>
 
                 <div className="relative pl-3 border-l border-slate-200">
@@ -70,13 +76,17 @@ export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, 
                                 <div className="border-t border-slate-100 py-1">
                                     <button
                                         onClick={async () => { 
-                                            try {
-                                                await supabase.auth.signOut();
-                                            } catch (e) {
-                                                console.error('Sign out error:', e);
+                                            setIsUserMenuOpen(false);
+                                            if (handleLogout) {
+                                                await handleLogout();
+                                            } else {
+                                                try {
+                                                    await supabase.auth.signOut();
+                                                } catch (e) {
+                                                    console.error('Sign out error:', e);
+                                                }
+                                                if (switchMainPage) switchMainPage('login'); 
                                             }
-                                            switchMainPage && switchMainPage('login'); 
-                                            setIsUserMenuOpen(false); 
                                         }}
                                         className="w-full px-4 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-2.5 transition"
                                     >

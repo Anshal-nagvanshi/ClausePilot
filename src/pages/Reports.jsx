@@ -202,7 +202,7 @@ ${aiReport ? `\nAI EXECUTIVE ANALYSIS:\n${aiReport}` : ''}
                                 <h3 className="text-sm font-bold font-heading text-indigo-950 flex items-center gap-2">
                                     <i className="fa-solid fa-brain text-indigo-600"></i> AI Comprehensive Executive Analysis
                                 </h3>
-                                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">Groq Llama-3 Analysis</span>
+                                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">Groq AI Analysis</span>
                             </div>
                             <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans bg-white/80 p-4 rounded-xl border border-indigo-50">
                                 {aiReport}

@@ -8,8 +8,19 @@ export default function Dashboard({ setAppView, user, navigateToContract, contra
     const [activity, setActivity] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
+    const rawName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there';
+    const userName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : 'there';
     const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour >= 5 && hour < 12) return 'Good Morning';
+        if (hour >= 12 && hour < 17) return 'Good Afternoon';
+        if (hour >= 17 && hour < 22) return 'Good Evening';
+        return 'Good Night';
+    };
+
+    const greeting = getGreeting();
 
     useEffect(() => {
         loadDashboard();
@@ -86,7 +97,7 @@ export default function Dashboard({ setAppView, user, navigateToContract, contra
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold font-heading text-slate-900 tracking-tight flex items-center gap-2">
-                        Good Morning, {userName}! 👋
+                        {greeting}, {userName}! 👋
                     </h1>
                     <p className="text-xs text-slate-500 mt-0.5">Here's what's happening with your contracts today.</p>
                 </div>

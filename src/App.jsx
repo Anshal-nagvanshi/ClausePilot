@@ -25,11 +25,17 @@ function App() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (session?.user) {
           setUser(session.user);
+          if (event === 'SIGNED_IN') {
+            setMainPage('app');
+          }
         } else {
           setUser(null);
+          if (event === 'SIGNED_OUT') {
+            setMainPage('login');
+          }
         }
       }
     );
@@ -37,11 +43,23 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Strict route guard: redirect to login if unauthenticated user attempts to view app workspace
+  useEffect(() => {
+    if (!authLoading && !user && mainPage === 'app') {
+      setMainPage('login');
+    }
+  }, [authLoading, user, mainPage]);
+
   const refreshContracts = useCallback(() => {
     setContractsRefreshKey(k => k + 1);
   }, []);
 
   const switchAppView = (view, contractId = null) => {
+    if (!user) {
+      setAuthMode('login');
+      setMainPage('login');
+      return;
+    }
     setMainPage('app');
     setAppView(view);
     if (contractId) {
@@ -55,6 +73,11 @@ function App() {
   };
 
   const switchMainPage = (page, mode = 'login') => {
+    if (page === 'app' && !user) {
+      setAuthMode('login');
+      setMainPage('login');
+      return;
+    }
     if (page === 'login') {
       setAuthMode(mode);
     }
@@ -62,11 +85,15 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Sign out error:', e);
+    }
     setUser(null);
-    setMainPage('landing');
-    setAppView('dashboard');
     setSelectedContractId(null);
+    setMainPage('login');
+    setAppView('dashboard');
   };
 
   if (authLoading) {
@@ -98,7 +125,7 @@ function App() {
             initialMode={authMode}
           />
         )}
-        {mainPage === 'app' && (
+        {mainPage === 'app' && user ? (
           <AppLayout
             appView={appView}
             setAppView={switchAppView}
@@ -110,7 +137,14 @@ function App() {
             contractsRefreshKey={contractsRefreshKey}
             handleLogout={handleLogout}
           />
-        )}
+        ) : mainPage === 'app' ? (
+          <LoginPage
+            setMainPage={switchMainPage}
+            setAppView={switchAppView}
+            setUser={setUser}
+            initialMode="login"
+          />
+        ) : null}
       </main>
     </div>
   );

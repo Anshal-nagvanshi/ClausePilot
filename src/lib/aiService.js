@@ -1,8 +1,73 @@
-import { retrieveRelevantChunks, buildRAGPromptContext } from './ragService';
+import { retrieveRelevantChunks, buildRAGPromptContext } from './ragService.js';
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const GROQ_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GROQ_API_KEY) || (typeof process !== 'undefined' && process.env?.VITE_GROQ_API_KEY);
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama3-70b-8192';
+
+// Supported active Groq models with automatic fallback
+const PRIMARY_MODEL = 'openai/gpt-oss-120b';
+const FALLBACK_MODELS = ['qwen/qwen3.8-27b', 'groq/compound'];
+
+/**
+ * Robust Groq API request runner with multi-model fallback.
+ * Ensures that if a model is decommissioned or unavailable,
+ * requests smoothly fall back to the next available active model.
+ */
+async function callGroqChat(payload) {
+    if (!GROQ_API_KEY) {
+        throw new Error('Groq API Key is not configured in .env');
+    }
+
+    const candidateModels = [PRIMARY_MODEL, ...FALLBACK_MODELS];
+    let lastError = null;
+
+    for (const model of candidateModels) {
+        try {
+            const response = await fetch(GROQ_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${GROQ_API_KEY}`
+                },
+                body: JSON.stringify({
+                    ...payload,
+                    model
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData?.error?.message || `HTTP ${response.status} from Groq`;
+                if (errMsg.includes('decommissioned') || errMsg.includes('does not exist') || response.status === 404 || response.status === 400) {
+                    console.warn(`Groq model ${model} unavailable (${errMsg}). Trying fallback model...`);
+                    lastError = new Error(errMsg);
+                    continue;
+                }
+                throw new Error(errMsg);
+            }
+
+            return await response.json();
+        } catch (err) {
+            lastError = err;
+            console.warn(`Groq attempt with ${model} failed:`, err.message);
+        }
+    }
+
+    throw lastError || new Error('All Groq AI models failed. Please verify your Groq API key.');
+}
+
+/**
+ * Cleanly parse JSON content even if the model wraps it with markdown code blocks.
+ */
+function cleanJsonParse(rawText) {
+    if (!rawText) throw new Error('Empty response from AI model');
+    let cleaned = rawText.trim();
+    if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+    } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    return JSON.parse(cleaned);
+}
 
 /**
  * Question Answering Agent (RAG)
@@ -10,10 +75,6 @@ const MODEL = 'llama3-70b-8192';
  * Retrieves the most relevant contract chunks and answers with explicit clause/section citations.
  */
 export async function chatWithRAG(contractText, userQuestion, previousHistory = []) {
-    if (!GROQ_API_KEY) {
-        throw new Error('Groq API Key is not configured in .env.local');
-    }
-
     // Step 5-6: Retrieve relevant chunks using RAG
     const relevantChunks = retrieveRelevantChunks(contractText, userQuestion, 4);
     const contextPrompt = buildRAGPromptContext(relevantChunks);
@@ -38,25 +99,11 @@ ${contextPrompt}
     ];
 
     try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${GROQ_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: MODEL,
-                messages: messages,
-                temperature: 0.1,
-            })
+        const data = await callGroqChat({
+            messages,
+            temperature: 0.1
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Failed to fetch from Groq API');
-        }
-
-        const data = await response.json();
         return {
             answer: data.choices[0].message.content,
             retrievedChunks: relevantChunks
@@ -80,10 +127,6 @@ export async function chatWithContract(contextText, userQuestion, previousHistor
  * Infused with CUAD (Contract Understanding Atticus Dataset) taxonomy and ContractNLI verification.
  */
 export async function extractContractMetadata(contractText) {
-    if (!GROQ_API_KEY) {
-        throw new Error('Groq API Key is not configured.');
-    }
-
     const systemPrompt = `You are a specialized legal AI pipeline combining the Contract Analysis Agent, Obligation Agent, and Risk Analysis Agent.
 Analyze the contract text based on the CUAD (Contract Understanding Atticus Dataset) categories and ContractNLI legal reasoning.
 
@@ -139,30 +182,14 @@ ${contractText.slice(0, 26000)}
 `;
 
     try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${GROQ_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: MODEL,
-                messages: [
-                    { role: 'system', content: systemPrompt }
-                ],
-                temperature: 0.1,
-                response_format: { type: "json_object" }
-            })
+        const data = await callGroqChat({
+            messages: [{ role: 'system', content: systemPrompt }],
+            temperature: 0.1,
+            response_format: { type: "json_object" }
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Failed to extract metadata');
-        }
-
-        const data = await response.json();
         const jsonContent = data.choices[0].message.content;
-        return JSON.parse(jsonContent);
+        return cleanJsonParse(jsonContent);
     } catch (error) {
         console.error("Metadata Extraction Error:", error);
         throw error;
@@ -174,10 +201,6 @@ ${contractText.slice(0, 26000)}
  * Identifies differences between multiple contract versions.
  */
 export async function compareContracts(contractText1, contractText2, title1 = 'Version 1', title2 = 'Version 2') {
-    if (!GROQ_API_KEY) {
-        throw new Error('Groq API Key is not configured.');
-    }
-
     const systemPrompt = `You are the Comparison Agent for ClausePilot.
 Compare two versions of a legal contract:
 Version 1: ${title1}
@@ -215,27 +238,13 @@ ${contractText2.slice(0, 14000)}
 `;
 
     try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${GROQ_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: MODEL,
-                messages: [{ role: 'system', content: systemPrompt }],
-                temperature: 0.1,
-                response_format: { type: "json_object" }
-            })
+        const data = await callGroqChat({
+            messages: [{ role: 'system', content: systemPrompt }],
+            temperature: 0.1,
+            response_format: { type: "json_object" }
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Failed to compare contracts');
-        }
-
-        const data = await response.json();
-        return JSON.parse(data.choices[0].message.content);
+        return cleanJsonParse(data.choices[0].message.content);
     } catch (error) {
         console.error("Contract Comparison Error:", error);
         throw error;
@@ -246,10 +255,6 @@ ${contractText2.slice(0, 14000)}
  * Deep Executive Report Generation
  */
 export async function generateReport(contractText) {
-    if (!GROQ_API_KEY) {
-        throw new Error('Groq API Key is not configured.');
-    }
-
     const systemPrompt = `You are a Senior Legal Analyst AI using CUAD and ContractNLI standards.
 Generate a comprehensive executive audit report for the following contract. Include:
 
@@ -266,25 +271,11 @@ ${contractText.slice(0, 22000)}
 `;
 
     try {
-        const response = await fetch(GROQ_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${GROQ_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: MODEL,
-                messages: [{ role: 'system', content: systemPrompt }],
-                temperature: 0.2,
-            })
+        const data = await callGroqChat({
+            messages: [{ role: 'system', content: systemPrompt }],
+            temperature: 0.2
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Failed to generate report');
-        }
-
-        const data = await response.json();
         return data.choices[0].message.content;
     } catch (error) {
         console.error("Report Generation Error:", error);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getContracts, getAllObligations, getAllRisks } from '../lib/contractService';
+import { getAlerts } from '../lib/contractService';
 
-export default function Alerts({ setAppView, navigateToContract }) {
+export default function Alerts({ _setAppView, navigateToContract, onAlertsCountChange }) {
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterSeverity, setFilterSeverity] = useState('All');
@@ -10,134 +10,11 @@ export default function Alerts({ setAppView, navigateToContract }) {
         async function loadAlerts() {
             setLoading(true);
             try {
-                const [contracts, obligations, risks] = await Promise.all([
-                    getContracts(),
-                    getAllObligations(),
-                    getAllRisks()
-                ]);
-
-                const generatedAlerts = [];
-                const now = new Date();
-                const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-                // 1. Expirations & Renewals
-                contracts.forEach(c => {
-                    if (c.expiration_date && c.expiration_date !== 'Not specified') {
-                        const expDate = new Date(c.expiration_date);
-                        if (!isNaN(expDate)) {
-                            if (expDate < now) {
-                                generatedAlerts.push({
-                                    id: `exp-${c.id}`,
-                                    title: 'Contract Expired',
-                                    description: `"${c.title}" reached its expiration date on ${c.expiration_date}.`,
-                                    severity: 'Urgent',
-                                    badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
-                                    icon: 'fa-solid fa-triangle-exclamation',
-                                    iconBg: 'bg-rose-500 text-white',
-                                    contractId: c.id,
-                                    contractTitle: c.title,
-                                    date: c.expiration_date
-                                });
-                            } else if (expDate <= thirtyDaysLater) {
-                                const daysLeft = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-                                generatedAlerts.push({
-                                    id: `renew-${c.id}`,
-                                    title: 'Expiration Notice Approaching',
-                                    description: `"${c.title}" will expire in ${daysLeft} days (${c.expiration_date}). Review renewal terms.`,
-                                    severity: 'Urgent',
-                                    badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
-                                    icon: 'fa-solid fa-clock-rotate-left',
-                                    iconBg: 'bg-rose-500 text-white',
-                                    contractId: c.id,
-                                    contractTitle: c.title,
-                                    date: c.expiration_date
-                                });
-                            }
-                        }
-                    }
-                });
-
-                // 2. Overdue Obligations
-                obligations.forEach(o => {
-                    if (o.status === 'Overdue') {
-                        generatedAlerts.push({
-                            id: `ob-overdue-${o.id}`,
-                            title: 'Overdue Obligation',
-                            description: `${o.description} (Responsible: ${o.responsible_party}) is marked as overdue.`,
-                            severity: 'Urgent',
-                            badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
-                            icon: 'fa-solid fa-circle-exclamation',
-                            iconBg: 'bg-rose-500 text-white',
-                            contractId: o.contract_id,
-                            contractTitle: o.contracts?.title || 'Contract',
-                            date: o.due_date
-                        });
-                    } else if (o.status !== 'Completed' && o.due_date && o.due_date !== 'Not specified') {
-                        const d = new Date(o.due_date);
-                        if (!isNaN(d)) {
-                            if (d < now) {
-                                generatedAlerts.push({
-                                    id: `ob-pastdue-${o.id}`,
-                                    title: 'Overdue Obligation',
-                                    description: `Due date passed (${o.due_date}): "${o.description}".`,
-                                    severity: 'Urgent',
-                                    badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
-                                    icon: 'fa-solid fa-circle-exclamation',
-                                    iconBg: 'bg-rose-500 text-white',
-                                    contractId: o.contract_id,
-                                    contractTitle: o.contracts?.title || 'Contract',
-                                    date: o.due_date
-                                });
-                            } else if (d <= new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)) {
-                                generatedAlerts.push({
-                                    id: `ob-due-soon-${o.id}`,
-                                    title: 'Obligation Due Soon',
-                                    description: `Due on ${o.due_date}: "${o.description}". Assigned to ${o.responsible_party}.`,
-                                    severity: 'Medium',
-                                    badgeColor: 'bg-amber-100 text-amber-700 border-amber-200',
-                                    icon: 'fa-regular fa-clock',
-                                    iconBg: 'bg-amber-500 text-white',
-                                    contractId: o.contract_id,
-                                    contractTitle: o.contracts?.title || 'Contract',
-                                    date: o.due_date
-                                });
-                            }
-                        }
-                    }
-                });
-
-                // 3. High and Medium Risks
-                risks.forEach(r => {
-                    if (r.severity === 'High') {
-                        generatedAlerts.push({
-                            id: `risk-high-${r.id}`,
-                            title: `High Risk: ${r.title}`,
-                            description: r.description || 'High risk identified in contract clauses requiring immediate attention.',
-                            severity: 'High',
-                            badgeColor: 'bg-orange-100 text-orange-700 border-orange-200',
-                            icon: 'fa-solid fa-triangle-exclamation',
-                            iconBg: 'bg-orange-500 text-white',
-                            contractId: r.contract_id,
-                            contractTitle: r.contracts?.title || 'Contract',
-                            date: 'Action needed'
-                        });
-                    } else if (r.severity === 'Medium') {
-                        generatedAlerts.push({
-                            id: `risk-med-${r.id}`,
-                            title: `Medium Risk: ${r.title}`,
-                            description: r.description || 'Moderate risk flagged in contract clauses.',
-                            severity: 'Medium',
-                            badgeColor: 'bg-amber-100 text-amber-700 border-amber-200',
-                            icon: 'fa-solid fa-shield-halved',
-                            iconBg: 'bg-amber-500 text-white',
-                            contractId: r.contract_id,
-                            contractTitle: r.contracts?.title || 'Contract',
-                            date: 'Review recommended'
-                        });
-                    }
-                });
-
+                const generatedAlerts = await getAlerts();
                 setAlerts(generatedAlerts);
+                if (onAlertsCountChange) {
+                    onAlertsCountChange(generatedAlerts.length);
+                }
             } catch (err) {
                 console.error('Failed to generate alerts:', err);
             } finally {

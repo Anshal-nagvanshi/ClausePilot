@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import TopHeader from '../components/TopHeader';
 import Dashboard from '../pages/Dashboard';
@@ -12,6 +12,7 @@ import Compare from '../pages/Compare';
 import AskAI from '../pages/AskAI';
 import Reports from '../pages/Reports';
 import Settings from '../pages/Settings';
+import { getAlertsCount } from '../lib/contractService';
 
 export default function AppLayout({
     appView, setAppView, switchMainPage, user,
@@ -19,6 +20,20 @@ export default function AppLayout({
     refreshContracts, contractsRefreshKey, handleLogout
 }) {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [alertCount, setAlertCount] = useState(0);
+
+    const refreshAlertCount = useCallback(async () => {
+        try {
+            const count = await getAlertsCount();
+            setAlertCount(count);
+        } catch (e) {
+            console.error('Failed to load alert count:', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshAlertCount();
+    }, [contractsRefreshKey, refreshAlertCount]);
 
     const navigateToContract = (contractId) => {
         setSelectedContractId(contractId);
@@ -27,7 +42,7 @@ export default function AppLayout({
 
     return (
         <div className="flex-1 flex overflow-hidden">
-            <Sidebar appView={appView} setAppView={setAppView} />
+            <Sidebar appView={appView} setAppView={setAppView} alertCount={alertCount} />
 
             <div className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
                 <TopHeader
@@ -37,6 +52,7 @@ export default function AppLayout({
                     setIsUserMenuOpen={setIsUserMenuOpen}
                     user={user}
                     handleLogout={handleLogout}
+                    alertCount={alertCount}
                 />
 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
@@ -87,6 +103,7 @@ export default function AppLayout({
                         <Alerts
                             setAppView={setAppView}
                             navigateToContract={navigateToContract}
+                            onAlertsCountChange={setAlertCount}
                         />
                     )}
                     {appView === 'compare' && <Compare setAppView={setAppView} />}

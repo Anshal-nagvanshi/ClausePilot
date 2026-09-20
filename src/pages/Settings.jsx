@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Settings({ setAppView, user, handleLogout }) {
-    const userEmail = user?.email || 'user@example.com';
-    const initialName = user?.user_metadata?.full_name || user?.user_metadata?.name || userEmail.split('@')[0];
+    const userEmail = user?.email || '';
+    const initialName = user?.user_metadata?.full_name || user?.user_metadata?.name || (userEmail ? userEmail.split('@')[0] : 'User');
     
     const [fullName, setFullName] = useState(initialName);
     const [role, setRole] = useState(user?.user_metadata?.role || 'Legal Counsel & Admin');
@@ -13,12 +13,13 @@ export default function Settings({ setAppView, user, handleLogout }) {
     const [isSaving, setIsSaving] = useState(false);
 
     // Derive avatar initials
-    const initials = (fullName || userEmail)
+    const initials = (fullName || userEmail || 'User')
         .split(' ')
+        .filter(Boolean)
         .map(n => n[0])
         .join('')
         .toUpperCase()
-        .slice(0, 2) || 'CP';
+        .slice(0, 2) || 'U';
 
     const handleSaveProfile = async (e) => {
         e.preventDefault();
@@ -243,9 +244,9 @@ export default function Settings({ setAppView, user, handleLogout }) {
                     <div className="space-y-3.5 text-xs">
                         <div>
                             <label className="block font-semibold text-slate-700 mb-1">Default AI Model</label>
-                            <select defaultValue="Groq LLaMA-3 70B" className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50 font-medium text-slate-900">
-                                <option>Groq LLaMA-3 70B (Ultra Fast)</option>
-                                <option>Groq Mixtral 8x7B</option>
+                            <select defaultValue="Groq GPT-OSS 120B" className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50 font-medium text-slate-900">
+                                <option>Groq GPT-OSS 120B (High Accuracy Legal)</option>
+                                <option>Groq Qwen 3.8 27B (Ultra Fast)</option>
                             </select>
                         </div>
 

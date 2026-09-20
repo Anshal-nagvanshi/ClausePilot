@@ -7,7 +7,7 @@ const APP_VIEWS = [
     { id: 'upload', label: 'Upload' },
     { id: 'obligations', label: 'Obligations' },
     { id: 'timeline', label: 'Timeline' },
-    { id: 'alerts', label: 'Alerts', badge: 3 },
+    { id: 'alerts', label: 'Alerts' },
     { id: 'compare', label: 'Compare' },
     { id: 'ask-ai', label: 'Ask AI' },
     { id: 'reports', label: 'Reports' },

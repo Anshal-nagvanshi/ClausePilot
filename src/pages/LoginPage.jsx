@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 export default function LoginPage({ setMainPage, setAppView, setUser, initialMode = 'login' }) {
     const [mode, setMode] = useState(initialMode); // 'login' or 'signup'
     const [fullName, setFullName] = useState('');
-    const [email, setEmail] = useState('john@company.com');
-    const [password, setPassword] = useState('demo123456');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -24,92 +24,71 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
         setSuccessMessage('');
         setLoading(true);
 
+        const cleanEmail = email.trim();
+        const cleanPassword = password;
+
+        if (!cleanEmail || !cleanPassword) {
+            setErrorMessage('Please enter both email and password.');
+            setLoading(false);
+            return;
+        }
+
+        if (mode === 'signup' && cleanPassword.length < 6) {
+            setErrorMessage('Password must be at least 6 characters long.');
+            setLoading(false);
+            return;
+        }
+
         try {
             if (mode === 'signup') {
-                try {
-                    const { data, error } = await supabase.auth.signUp({
-                        email,
-                        password,
-                        options: {
-                            data: {
-                                full_name: fullName || 'User'
-                            }
+                const { data, error } = await supabase.auth.signUp({
+                    email: cleanEmail,
+                    password: cleanPassword,
+                    options: {
+                        data: {
+                            full_name: fullName.trim() || cleanEmail.split('@')[0] || 'User'
                         }
-                    });
-
-                    if (error) {
-                        console.warn('Supabase signUp warning, proceeding to dashboard:', error.message);
-                        const fallbackUser = {
-                            email,
-                            user_metadata: { full_name: fullName || email.split('@')[0] || 'User' }
-                        };
-                        if (setUser) setUser(fallbackUser);
-                        setAppView('dashboard');
-                        return;
                     }
+                });
 
-                    const authUser = data?.session?.user || data?.user || {
-                        email,
-                        user_metadata: { full_name: fullName || email.split('@')[0] || 'User' }
-                    };
-                    if (setUser) setUser(authUser);
+                if (error) {
+                    setErrorMessage(error.message);
+                    return;
+                }
+
+                if (data?.session?.user) {
+                    if (setUser) setUser(data.session.user);
                     setAppView('dashboard');
-                } catch (signUpErr) {
-                    console.warn('Supabase signUp error caught, proceeding to dashboard:', signUpErr);
-                    const fallbackUser = {
-                        email,
-                        user_metadata: { full_name: fullName || email.split('@')[0] || 'User' }
-                    };
-                    if (setUser) setUser(fallbackUser);
-                    setAppView('dashboard');
+                } else if (data?.user) {
+                    // Registration recorded in backend, confirmation may be required
+                    setSuccessMessage('Registration successful! If your account requires email confirmation, please check your inbox before signing in.');
+                    setMode('login');
+                } else {
+                    setErrorMessage('Account creation failed. Please try again.');
                 }
             } else {
-                try {
-                    const { data, error } = await supabase.auth.signInWithPassword({
-                        email,
-                        password
-                    });
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: cleanEmail,
+                    password: cleanPassword
+                });
 
-                    if (error) {
-                        console.warn('Supabase signIn warning, proceeding to dashboard:', error.message);
-                        const fallbackUser = {
-                            email,
-                            user_metadata: { full_name: email.split('@')[0] || 'John Doe' }
-                        };
-                        if (setUser) setUser(fallbackUser);
-                        setAppView('dashboard');
-                        return;
-                    }
+                if (error) {
+                    setErrorMessage(error.message);
+                    return;
+                }
 
-                    const authUser = data?.session?.user || data?.user || {
-                        email,
-                        user_metadata: { full_name: email.split('@')[0] || 'User' }
-                    };
-                    if (setUser) setUser(authUser);
+                if (data?.session?.user) {
+                    if (setUser) setUser(data.session.user);
                     setAppView('dashboard');
-                } catch (signInErr) {
-                    console.warn('Supabase signIn error caught, proceeding to dashboard:', signInErr);
-                    const fallbackUser = {
-                        email,
-                        user_metadata: { full_name: email.split('@')[0] || 'John Doe' }
-                    };
-                    if (setUser) setUser(fallbackUser);
-                    setAppView('dashboard');
+                } else {
+                    setErrorMessage('Unable to sign in. Please verify your credentials.');
                 }
             }
+        } catch (err) {
+            setErrorMessage(err.message || 'An unexpected error occurred during authentication.');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleDemoAccess = () => {
-        if (setUser) {
-            setUser({
-                email: 'demo@clausepilot.com',
-                user_metadata: { full_name: 'John Doe' }
-            });
-        }
-        setAppView('dashboard');
     };
 
     return (
@@ -177,32 +156,37 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                         </div>
 
                         {errorMessage && (
-                            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
-                                <i className="fa-solid fa-circle-exclamation mt-0.5 text-rose-500"></i>
-                                <div className="flex-1">
-                                    <span>{errorMessage}</span>
-                                    <div className="mt-1">
-                                        <button type="button" onClick={handleDemoAccess} className="font-bold underline text-rose-800 hover:text-rose-950">
-                                            Click here for Instant Demo Access &rarr;
-                                        </button>
+                            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex flex-col gap-2">
+                                <div className="flex items-start gap-2">
+                                    <i className="fa-solid fa-circle-exclamation mt-0.5 text-rose-500"></i>
+                                    <div className="flex-1 font-medium leading-relaxed">
+                                        <span>{errorMessage}</span>
                                     </div>
                                 </div>
+                                {errorMessage.toLowerCase().includes('rate limit') && (
+                                    <div className="mt-1 pt-2 border-t border-rose-200/80 text-[11px] text-rose-800 space-y-1">
+                                        <p className="font-bold flex items-center gap-1.5">
+                                            <i className="fa-solid fa-lightbulb text-amber-500"></i> How to fix this in Supabase (10-second fix):
+                                        </p>
+                                        <ol className="list-decimal list-inside space-y-0.5 text-rose-700 text-[11px]">
+                                            <li>Open your <strong>Supabase Dashboard</strong></li>
+                                            <li>Go to <strong>Authentication &rarr; Providers &rarr; Email</strong></li>
+                                            <li>Turn <strong>Confirm email</strong> to <strong>OFF</strong> and click <strong>Save</strong></li>
+                                        </ol>
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Turning this off allows immediate sign-ups without sending confirmation emails, permanently avoiding the email rate limit.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {successMessage && (
-                            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex flex-col gap-2">
-                                <div className="flex items-start gap-2">
-                                    <i className="fa-solid fa-circle-check mt-0.5 text-emerald-500"></i>
+                            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-start gap-2">
+                                <i className="fa-solid fa-circle-check mt-0.5 text-emerald-500"></i>
+                                <div className="flex-1 font-medium leading-relaxed">
                                     <span>{successMessage}</span>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setAppView('dashboard')}
-                                    className="self-start text-xs font-bold text-emerald-800 hover:text-emerald-950 underline"
-                                >
-                                    Proceed directly to Dashboard &rarr;
-                                </button>
                             </div>
                         )}
 
@@ -214,7 +198,7 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                                         type="text" 
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        placeholder="John Doe" 
+                                        placeholder="Enter your full name" 
                                         className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white" 
                                     />
                                 </div>
@@ -238,7 +222,7 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                             <div>
                                 <div className="flex justify-between items-center mb-1">
                                     <label className="block text-xs font-semibold text-slate-700">Password</label>
-                                    <a href="#" onClick={(e) => { e.preventDefault(); alert("Use your registered email or sign in with Demo mode."); }} className="text-xs text-brand-600 hover:underline font-semibold">Forgot password?</a>
+                                    <a href="#" onClick={(e) => { e.preventDefault(); alert("Use your registered email and password to sign in."); }} className="text-xs text-brand-600 hover:underline font-semibold">Forgot password?</a>
                                 </div>
                                 <div className="relative">
                                     <i className="fa-solid fa-lock absolute left-3.5 top-3 text-slate-400 text-sm"></i>
@@ -270,16 +254,6 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                                     </>
                                 )}
                             </button>
-
-                            <div className="pt-2 text-center">
-                                <button
-                                    type="button"
-                                    onClick={handleDemoAccess}
-                                    className="text-xs text-slate-500 hover:text-brand-600 font-semibold transition inline-flex items-center gap-1.5"
-                                >
-                                    <i className="fa-solid fa-rocket text-brand-500"></i> Continue as Demo Guest (Bypass Sign In)
-                                </button>
-                            </div>
                         </form>
                     </div>
                 </div>

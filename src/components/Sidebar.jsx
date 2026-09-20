@@ -6,14 +6,14 @@ const NAV_ITEMS = [
     { id: 'upload', icon: 'fa-cloud-arrow-up', label: 'Upload' },
     { id: 'obligations', icon: 'fa-list-check', label: 'Obligations' },
     { id: 'timeline', icon: 'fa-regular fa-calendar-days', label: 'Timeline' },
-    { id: 'alerts', icon: 'fa-regular fa-bell', label: 'Alerts', badge: 3 },
+    { id: 'alerts', icon: 'fa-regular fa-bell', label: 'Alerts' },
     { id: 'compare', icon: 'fa-code-compare', label: 'Compare' },
     { id: 'ask-ai', icon: 'fa-wand-magic-sparkles', label: 'Ask AI', iconColor: 'text-brand-600' },
     { id: 'reports', icon: 'fa-chart-pie', label: 'Reports' },
     { id: 'settings', icon: 'fa-gear', label: 'Settings' },
 ];
 
-export default function Sidebar({ appView, setAppView }) {
+export default function Sidebar({ appView, setAppView, alertCount = 0 }) {
     return (
         <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0 z-20">
             <div className="p-4">
@@ -37,6 +37,7 @@ export default function Sidebar({ appView, setAppView }) {
                 <nav className="space-y-1">
                     {NAV_ITEMS.map(item => {
                         const isActive = appView === item.id;
+                        const badgeCount = item.id === 'alerts' ? alertCount : (item.badge || 0);
                         return (
                             <a
                                 key={item.id}
@@ -51,9 +52,9 @@ export default function Sidebar({ appView, setAppView }) {
                                     <i className={`fa-solid ${item.icon} w-5 text-center ${isActive ? '' : (item.iconColor || '')}`}></i>
                                     {item.label}
                                 </span>
-                                {item.badge && (
+                                {badgeCount > 0 && (
                                     <span className="bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                        {item.badge}
+                                        {badgeCount}
                                     </span>
                                 )}
                             </a>
