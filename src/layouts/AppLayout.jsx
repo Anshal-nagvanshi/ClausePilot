@@ -13,8 +13,17 @@ import AskAI from '../pages/AskAI';
 import Reports from '../pages/Reports';
 import Settings from '../pages/Settings';
 
-export default function AppLayout({ appView, setAppView, switchMainPage, user }) {
+export default function AppLayout({
+    appView, setAppView, switchMainPage, user,
+    selectedContractId, setSelectedContractId,
+    refreshContracts, contractsRefreshKey, handleLogout
+}) {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+    const navigateToContract = (contractId) => {
+        setSelectedContractId(contractId);
+        setAppView('contract-details');
+    };
 
     return (
         <div className="flex-1 flex overflow-hidden">
@@ -27,20 +36,81 @@ export default function AppLayout({ appView, setAppView, switchMainPage, user })
                     isUserMenuOpen={isUserMenuOpen}
                     setIsUserMenuOpen={setIsUserMenuOpen}
                     user={user}
+                    handleLogout={handleLogout}
                 />
 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    {appView === 'dashboard' && <Dashboard setAppView={setAppView} />}
-                    {appView === 'contracts' && <Contracts setAppView={setAppView} />}
-                    {appView === 'upload' && <Upload setAppView={setAppView} />}
-                    {appView === 'contract-details' && <ContractDetails setAppView={setAppView} />}
-                    {appView === 'obligations' && <Obligations setAppView={setAppView} />}
-                    {appView === 'timeline' && <Timeline setAppView={setAppView} />}
-                    {appView === 'alerts' && <Alerts setAppView={setAppView} />}
+                    {appView === 'dashboard' && (
+                        <Dashboard
+                            setAppView={setAppView}
+                            user={user}
+                            navigateToContract={navigateToContract}
+                            contractsRefreshKey={contractsRefreshKey}
+                        />
+                    )}
+                    {appView === 'contracts' && (
+                        <Contracts
+                            setAppView={setAppView}
+                            navigateToContract={navigateToContract}
+                            contractsRefreshKey={contractsRefreshKey}
+                        />
+                    )}
+                    {appView === 'upload' && (
+                        <Upload
+                            setAppView={setAppView}
+                            user={user}
+                            refreshContracts={refreshContracts}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
+                    {appView === 'contract-details' && (
+                        <ContractDetails
+                            setAppView={setAppView}
+                            contractId={selectedContractId}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
+                    {appView === 'obligations' && (
+                        <Obligations
+                            setAppView={setAppView}
+                            contractId={selectedContractId}
+                        />
+                    )}
+                    {appView === 'timeline' && (
+                        <Timeline
+                            setAppView={setAppView}
+                            contractId={selectedContractId}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
+                    {appView === 'alerts' && (
+                        <Alerts
+                            setAppView={setAppView}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
                     {appView === 'compare' && <Compare setAppView={setAppView} />}
-                    {appView === 'ask-ai' && <AskAI setAppView={setAppView} />}
-                    {appView === 'reports' && <Reports setAppView={setAppView} />}
-                    {appView === 'settings' && <Settings setAppView={setAppView} />}
+                    {appView === 'ask-ai' && (
+                        <AskAI
+                            setAppView={setAppView}
+                            contractId={selectedContractId}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
+                    {appView === 'reports' && (
+                        <Reports
+                            setAppView={setAppView}
+                            contractId={selectedContractId}
+                            navigateToContract={navigateToContract}
+                        />
+                    )}
+                    {appView === 'settings' && (
+                        <Settings
+                            setAppView={setAppView}
+                            user={user}
+                            handleLogout={handleLogout}
+                        />
+                    )}
                 </div>
             </div>
         </div>

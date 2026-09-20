@@ -1,202 +1,134 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { getObligationsByContract, getContractById, updateObligation } from '../lib/contractService';
 
-export default function Obligations({ setAppView }) {
+export default function Obligations({ setAppView, contractId }) {
     const chartRef = useRef(null);
+    const [obligations, setObligations] = useState([]);
+    const [contract, setContract] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => { if (contractId) loadData(); else setLoading(false); }, [contractId]);
+
+    const loadData = async () => {
+        try {
+            const [obs, c] = await Promise.all([
+                getObligationsByContract(contractId),
+                getContractById(contractId)
+            ]);
+            setObligations(obs);
+            setContract(c);
+        } catch (err) { console.error(err); } finally { setLoading(false); }
+    };
 
     useEffect(() => {
-        let chartInstance = null;
-        if (chartRef.current && window.Chart) {
-            chartInstance = new window.Chart(chartRef.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Upcoming', 'Overdue', 'Active', 'Not Started', 'Completed'],
-                    datasets: [{
-                        data: [5, 2, 1, 0, 0],
-                        backgroundColor: ['#10b981', '#f43f5e', '#3b82f6', '#cbd5e1', '#a855f7'],
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
-                    }]
-                },
-                options: {
-                    cutout: '72%',
-                    plugins: { legend: { display: false } },
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-        }
-        return () => {
-            if (chartInstance) chartInstance.destroy();
-        };
-    }, []);
+        if (!chartRef.current || !window.Chart || obligations.length === 0) return;
+        const statusCounts = { Upcoming: 0, Overdue: 0, Active: 0, Completed: 0 };
+        obligations.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
+
+        const chart = new window.Chart(chartRef.current, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(statusCounts),
+                datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#10b981', '#f43f5e', '#3b82f6', '#a855f7'], borderWidth: 2, borderColor: '#fff' }]
+            },
+            options: { cutout: '72%', plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
+        });
+        return () => chart.destroy();
+    }, [obligations]);
+
+    const toggleStatus = async (ob) => {
+        const newStatus = ob.status === 'Completed' ? 'Upcoming' : 'Completed';
+        try {
+            await updateObligation(ob.id, { status: newStatus });
+            setObligations(prev => prev.map(o => o.id === ob.id ? { ...o, status: newStatus } : o));
+        } catch (err) { console.error(err); }
+    };
+
+    if (loading) return <div className="flex items-center justify-center h-64"><i className="fa-solid fa-spinner fa-spin text-brand-600 text-2xl"></i></div>;
+
+    if (!contractId) {
+        return <div className="text-center py-16 text-xs text-slate-400"><p>Select a contract first to view its obligations.</p><button onClick={() => setAppView('contracts')} className="text-brand-600 font-bold hover:underline mt-2">Go to Contracts</button></div>;
+    }
+
+    const total = obligations.length;
+    const upcoming = obligations.filter(o => o.status === 'Upcoming').length;
+    const overdue = obligations.filter(o => o.status === 'Overdue').length;
+    const completed = obligations.filter(o => o.status === 'Completed').length;
+
+    const statusColor = (s) => s === 'Upcoming' ? 'bg-emerald-100 text-emerald-800' : s === 'Overdue' ? 'bg-rose-100 text-rose-800' : s === 'Active' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800';
+    const catColor = (c) => c === 'Payment' ? 'bg-purple-50 text-purple-700' : c === 'Service Delivery' ? 'bg-blue-50 text-brand-700' : c === 'Renewal' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <button onClick={() => setAppView('contract-details')} className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 mb-1">
-                        <i className="fa-solid fa-arrow-left"></i> Back to Contract
-                    </button>
+                    <button onClick={() => setAppView('contract-details')} className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1 mb-1"><i className="fa-solid fa-arrow-left"></i> Back to Contract</button>
                     <h1 className="text-2xl font-bold font-heading text-slate-900 tracking-tight">Obligations</h1>
-                    <p className="text-xs text-slate-500 mt-0.5">All identified obligations from Acme SaaS Agreement</p>
+                    <p className="text-xs text-slate-500 mt-0.5">All identified obligations from {contract?.title || 'this contract'}</p>
                 </div>
-                <button className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
-                    <i className="fa-solid fa-plus"></i> Add Obligation
-                </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-brand-600 flex items-center justify-center text-xl font-bold">
-                        <i className="fa-regular fa-square-check"></i>
-                    </div>
-                    <div>
-                        <div className="text-2xl font-extrabold text-slate-900 font-heading">8</div>
-                        <div className="text-xs font-semibold text-slate-700">Total Obligations</div>
-                        <div className="text-[10px] text-slate-400">Across all parties</div>
-                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-brand-600 flex items-center justify-center text-xl font-bold"><i className="fa-regular fa-square-check"></i></div>
+                    <div><div className="text-2xl font-extrabold text-slate-900 font-heading">{total}</div><div className="text-xs font-semibold text-slate-700">Total</div></div>
                 </div>
-
                 <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xl font-bold">
-                        <i className="fa-regular fa-circle-check"></i>
-                    </div>
-                    <div>
-                        <div className="text-2xl font-extrabold text-slate-900 font-heading">5</div>
-                        <div className="text-xs font-semibold text-slate-700">Upcoming</div>
-                        <div className="text-[10px] text-slate-400">Due in next 30 days</div>
-                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xl font-bold"><i className="fa-regular fa-circle-check"></i></div>
+                    <div><div className="text-2xl font-extrabold text-slate-900 font-heading">{upcoming}</div><div className="text-xs font-semibold text-slate-700">Upcoming</div></div>
                 </div>
-
                 <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center text-xl font-bold">
-                        <i className="fa-regular fa-clock"></i>
-                    </div>
-                    <div>
-                        <div className="text-2xl font-extrabold text-slate-900 font-heading">2</div>
-                        <div className="text-xs font-semibold text-slate-700">Overdue</div>
-                        <div className="text-[10px] text-slate-400">Past due date</div>
-                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center text-xl font-bold"><i className="fa-regular fa-clock"></i></div>
+                    <div><div className="text-2xl font-extrabold text-slate-900 font-heading">{overdue}</div><div className="text-xs font-semibold text-slate-700">Overdue</div></div>
                 </div>
-
                 <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center text-xl font-bold">
-                        <i className="fa-solid fa-users-gear"></i>
-                    </div>
-                    <div>
-                        <div className="text-2xl font-extrabold text-slate-900 font-heading">2</div>
-                        <div className="text-xs font-semibold text-slate-700">Completed</div>
-                        <div className="text-[10px] text-slate-400">Marked as done</div>
-                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center text-xl font-bold"><i className="fa-solid fa-users-gear"></i></div>
+                    <div><div className="text-2xl font-extrabold text-slate-900 font-heading">{completed}</div><div className="text-xs font-semibold text-slate-700">Completed</div></div>
                 </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="relative flex-1 min-w-[240px]">
-                        <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
-                        <input type="text" placeholder="Search obligations..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50" />
+                {obligations.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-slate-400"><i className="fa-regular fa-clipboard text-3xl mb-2 block"></i>No obligations extracted yet.</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50/80 text-slate-500 font-semibold uppercase text-[10px] border-b border-slate-200">
+                                <tr><th className="py-3 px-4 w-10">#</th><th className="py-3 px-4">Obligation</th><th className="py-3 px-4">Responsible Party</th><th className="py-3 px-4">Due Date</th><th className="py-3 px-4">Status</th><th className="py-3 px-4">Category</th><th className="py-3 px-4 text-right">Actions</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                                {obligations.map((ob, idx) => (
+                                    <tr key={ob.id}>
+                                        <td className="py-3 px-4 text-slate-400">{idx + 1}</td>
+                                        <td className="py-3 px-4 font-bold text-slate-900 max-w-xs">{ob.description}</td>
+                                        <td className="py-3 px-4">{ob.responsible_party || '—'}</td>
+                                        <td className="py-3 px-4">{ob.due_date || '—'}</td>
+                                        <td className="py-3 px-4"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor(ob.status)}`}>{ob.status}</span></td>
+                                        <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${catColor(ob.category)}`}>{ob.category || '—'}</span></td>
+                                        <td className="py-3 px-4 text-right">
+                                            <button onClick={() => toggleStatus(ob)} className="text-brand-600 hover:text-brand-800 font-bold text-[10px]">
+                                                {ob.status === 'Completed' ? 'Undo' : 'Complete'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <select className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"><option>All Status</option></select>
-                        <select className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"><option>All Parties</option></select>
-                        <select className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"><option>All Categories</option></select>
-                        <select className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"><option>Sort by</option></select>
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50/80 text-slate-500 font-semibold uppercase text-[10px] border-b border-slate-200">
-                            <tr>
-                                <th className="py-3 px-4 w-10"><input type="checkbox" className="rounded" /></th>
-                                <th className="py-3 px-4 w-10">#</th>
-                                <th className="py-3 px-4">Obligation</th>
-                                <th className="py-3 px-4">Responsible Party</th>
-                                <th className="py-3 px-4">Due Date</th>
-                                <th className="py-3 px-4">Status</th>
-                                <th className="py-3 px-4">Category</th>
-                                <th className="py-3 px-4">Source</th>
-                                <th className="py-3 px-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                            <tr>
-                                <td className="py-3 px-4"><input type="checkbox" className="rounded" /></td>
-                                <td className="py-3 px-4 text-slate-400">1</td>
-                                <td className="py-3 px-4 font-bold text-slate-900">Provide monthly service reports</td>
-                                <td className="py-3 px-4"><span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded-full bg-brand-600 text-white font-bold text-[9px] flex items-center justify-center">TI</span> TechSoft Inc.</span></td>
-                                <td className="py-3 px-4">Oct 1, 2026</td>
-                                <td className="py-3 px-4"><span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Upcoming</span></td>
-                                <td className="py-3 px-4"><span className="bg-blue-50 text-brand-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">Service Delivery</span></td>
-                                <td className="py-3 px-4 text-slate-400">Page 4</td>
-                                <td className="py-3 px-4 text-right"><i className="fa-solid fa-ellipsis-vertical text-slate-400 hover:text-slate-700 cursor-pointer"></i></td>
-                            </tr>
-                            <tr>
-                                <td className="py-3 px-4"><input type="checkbox" className="rounded" /></td>
-                                <td className="py-3 px-4 text-slate-400">2</td>
-                                <td className="py-3 px-4 font-bold text-slate-900">Make monthly payment of $10,000</td>
-                                <td className="py-3 px-4"><span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded-full bg-purple-600 text-white font-bold text-[9px] flex items-center justify-center">AC</span> Acme Corp</span></td>
-                                <td className="py-3 px-4">Sep 30, 2026</td>
-                                <td className="py-3 px-4"><span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Overdue</span></td>
-                                <td className="py-3 px-4"><span className="bg-purple-50 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">Payment</span></td>
-                                <td className="py-3 px-4 text-slate-400">Page 5</td>
-                                <td className="py-3 px-4 text-right"><i className="fa-solid fa-ellipsis-vertical text-slate-400 hover:text-slate-700 cursor-pointer"></i></td>
-                            </tr>
-                            <tr>
-                                <td className="py-3 px-4"><input type="checkbox" className="rounded" /></td>
-                                <td className="py-3 px-4 text-slate-400">3</td>
-                                <td className="py-3 px-4 font-bold text-slate-900">Give 30 days notice for non-renewal</td>
-                                <td className="py-3 px-4"><span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded-full bg-purple-600 text-white font-bold text-[9px] flex items-center justify-center">AC</span> Acme Corp</span></td>
-                                <td className="py-3 px-4">Dec 1, 2026</td>
-                                <td className="py-3 px-4"><span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Upcoming</span></td>
-                                <td className="py-3 px-4"><span className="bg-amber-50 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-md">Renewal</span></td>
-                                <td className="py-3 px-4 text-slate-400">Page 6</td>
-                                <td className="py-3 px-4 text-right"><i className="fa-solid fa-ellipsis-vertical text-slate-400 hover:text-slate-700 cursor-pointer"></i></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-                    <h3 className="text-sm font-bold font-heading text-slate-900">Obligations by Status</h3>
-                    <div className="flex items-center justify-center relative py-2">
-                        <div className="w-40 h-40">
-                            <canvas ref={chartRef}></canvas>
-                        </div>
-                        <div className="absolute text-center">
-                            <div className="text-2xl font-extrabold text-slate-900 font-heading">8</div>
-                            <div className="text-[10px] font-semibold text-slate-400">Total</div>
+            {obligations.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
+                        <h3 className="text-sm font-bold font-heading text-slate-900">By Status</h3>
+                        <div className="flex items-center justify-center relative py-2">
+                            <div className="w-40 h-40"><canvas ref={chartRef}></canvas></div>
+                            <div className="absolute text-center"><div className="text-2xl font-extrabold text-slate-900 font-heading">{total}</div><div className="text-[10px] font-semibold text-slate-400">Total</div></div>
                         </div>
                     </div>
                 </div>
-
-                <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold font-heading text-slate-900 flex items-center gap-2">
-                            <i className="fa-regular fa-calendar text-brand-600"></i> Upcoming Deadlines
-                        </h3>
-                        <button className="text-xs font-bold text-brand-600 hover:underline">View Calendar &rarr;</button>
-                    </div>
-
-                    <div className="space-y-3 text-xs">
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                            <span className="font-bold text-slate-900 w-24">Oct 1, 2026</span>
-                            <span className="text-slate-700 flex-1">Provide monthly service reports</span>
-                            <span className="text-slate-500">TechSoft Inc.</span>
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-4">Upcoming</span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                            <span className="font-bold text-slate-900 w-24">Dec 1, 2026</span>
-                            <span className="text-slate-700 flex-1">Give 30 days notice for non-renewal</span>
-                            <span className="text-slate-500">Acme Corp</span>
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-4">Upcoming</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 }

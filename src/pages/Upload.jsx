@@ -1,4 +1,8 @@
 import React, { useState, useRef } from 'react';
+import { extractContractMetadata } from '../lib/aiService';
+import { extractTextFromFile } from '../lib/documentParser';
+import { createContract, createObligations, createRisks, logActivity } from '../lib/contractService';
+import { uploadContractFile } from '../lib/storageService';
 
 const CONTRACT_TYPES = [
     'SaaS & Software Agreement',
@@ -10,13 +14,7 @@ const CONTRACT_TYPES = [
     'Other Business Contract'
 ];
 
-const SAMPLE_DOCUMENTS = [
-    { name: 'Acme_SaaS_Enterprise_Agreement.pdf', size: '2.4 MB', type: 'application/pdf', category: 'SaaS & Software Agreement' },
-    { name: 'Mutual_Non_Disclosure_Agreement.docx', size: '420 KB', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', category: 'Non-Disclosure Agreement (NDA)' },
-    { name: 'Global_Logistics_Supply_Contract.pdf', size: '3.1 MB', type: 'application/pdf', category: 'Vendor & Supply Contract' }
-];
-
-export default function Upload({ setAppView }) {
+export default function Upload({ setAppView, user, refreshContracts, navigateToContract }) {
     const fileInputRef = useRef(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -27,17 +25,20 @@ export default function Upload({ setAppView }) {
     const [analysisStep, setAnalysisStep] = useState(0);
     const [progress, setProgress] = useState(0);
     const [uploadComplete, setUploadComplete] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState(null);
+    const [createdContractId, setCreatedContractId] = useState(null);
+    const [errorMsg, setErrorMsg] = useState('');
 
     const steps = [
         { label: 'Reading document text & OCR extraction', icon: 'fa-file-lines' },
         { label: 'Identifying parties, clauses & legal definitions', icon: 'fa-wand-magic-sparkles' },
         { label: 'Extracting key obligations, renewal terms & deadlines', icon: 'fa-list-check' },
-        { label: 'Evaluating risk factors & compliance warnings', icon: 'fa-triangle-exclamation' },
-        { label: 'Analysis complete & stored in vector knowledge base', icon: 'fa-circle-check' }
+        { label: 'Saving to database & generating risk analysis', icon: 'fa-triangle-exclamation' },
+        { label: 'Analysis complete & stored in database', icon: 'fa-circle-check' }
     ];
 
     const formatFileSize = (bytes) => {
-        if (!bytes) return '1.2 MB';
+        if (!bytes) return '—';
         if (typeof bytes === 'string') return bytes;
         const k = 1024;
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -53,7 +54,6 @@ export default function Upload({ setAppView }) {
 
     const applyFile = (file) => {
         setSelectedFile(file);
-        // Clean filename for contract title
         const cleanTitle = file.name
             .replace(/\.[^/.]+$/, '')
             .replace(/[_-]/g, ' ')
@@ -62,18 +62,13 @@ export default function Upload({ setAppView }) {
         setUploadComplete(false);
         setProgress(0);
         setAnalysisStep(0);
+        setAnalysisResult(null);
+        setCreatedContractId(null);
+        setErrorMsg('');
     };
 
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
-
+    const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
     const handleDrop = (e) => {
         e.preventDefault();
         setIsDragging(false);
@@ -82,64 +77,103 @@ export default function Upload({ setAppView }) {
         }
     };
 
-    const handleChooseSample = (sample) => {
-        setSelectedFile({
-            name: sample.name,
-            size: sample.size,
-            type: sample.type
-        });
-        const cleanTitle = sample.name
-            .replace(/\.[^/.]+$/, '')
-            .replace(/[_-]/g, ' ')
-            .replace(/\b\w/g, l => l.toUpperCase());
-        setContractTitle(cleanTitle);
-        setContractCategory(sample.category);
-        setUploadComplete(false);
-        setProgress(0);
-        setAnalysisStep(0);
-    };
+    const triggerBrowse = () => { if (fileInputRef.current) fileInputRef.current.click(); };
 
-    const triggerBrowse = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
-    const startAnalysis = () => {
+    const startAnalysis = async () => {
         if (!selectedFile) return;
         setIsProcessing(true);
         setProgress(5);
         setAnalysisStep(0);
+        setErrorMsg('');
 
-        let currentProgress = 5;
-        let stepIdx = 0;
-
-        const interval = setInterval(() => {
-            currentProgress += Math.floor(Math.random() * 12) + 8;
-            if (currentProgress > 95) currentProgress = 95;
-            setProgress(currentProgress);
-
-            if (currentProgress > 25 && stepIdx === 0) {
-                stepIdx = 1;
-                setAnalysisStep(1);
-            } else if (currentProgress > 50 && stepIdx === 1) {
-                stepIdx = 2;
-                setAnalysisStep(2);
-            } else if (currentProgress > 75 && stepIdx === 2) {
-                stepIdx = 3;
-                setAnalysisStep(3);
+        try {
+            // Step 1: Extract text
+            setAnalysisStep(0);
+            setProgress(15);
+            let text = '';
+            if (selectedFile instanceof File) {
+                text = await extractTextFromFile(selectedFile);
+            } else {
+                text = "This is a sample contract. No real text available for this demo file.";
             }
 
-            if (currentProgress >= 95) {
-                clearInterval(interval);
-                setTimeout(() => {
-                    setProgress(100);
-                    setAnalysisStep(4);
-                    setIsProcessing(false);
-                    setUploadComplete(true);
-                }, 600);
+            // Step 2: Upload file to Supabase Storage
+            setAnalysisStep(1);
+            setProgress(30);
+            let fileUrl = '';
+            if (selectedFile instanceof File) {
+                try {
+                    const uploadResult = await uploadContractFile(selectedFile);
+                    fileUrl = uploadResult.url;
+                } catch (uploadErr) {
+                    console.warn('File upload to storage failed (continuing):', uploadErr.message);
+                }
             }
-        }, 300);
+
+            // Step 3: AI Extraction
+            setAnalysisStep(2);
+            setProgress(50);
+            const metadata = await extractContractMetadata(text);
+            console.log("AI Extracted Metadata:", metadata);
+
+            // Step 4: Save to Supabase
+            setAnalysisStep(3);
+            setProgress(75);
+
+            const contractRecord = await createContract({
+                title: contractTitle || metadata.summary?.slice(0, 60) || 'Untitled Contract',
+                file_name: selectedFile.name,
+                file_url: fileUrl,
+                file_size: typeof selectedFile.size === 'number' ? formatFileSize(selectedFile.size) : (selectedFile.size || ''),
+                file_type: selectedFile.type || '',
+                raw_text: text,
+                category: contractCategory,
+                priority: priority,
+                status: 'Active',
+                summary: metadata.summary || '',
+                contract_type: metadata.contractType || contractCategory,
+                parties: metadata.parties || [],
+                effective_date: metadata.effectiveDate || 'Not specified',
+                expiration_date: metadata.expirationDate || 'Not specified',
+                renewal_terms: metadata.renewalTerms || 'Not specified',
+                payment_terms: metadata.paymentTerms || 'Not specified'
+            });
+
+            // Save obligations
+            let savedObligations = [];
+            if (metadata.obligations && metadata.obligations.length > 0) {
+                savedObligations = await createObligations(contractRecord.id, metadata.obligations);
+            }
+
+            // Save risks
+            let savedRisks = [];
+            if (metadata.risks && metadata.risks.length > 0) {
+                savedRisks = await createRisks(contractRecord.id, metadata.risks);
+            }
+
+            // Log activity
+            await logActivity('ai_analysis_complete', `AI extracted ${savedObligations.length} obligations and ${savedRisks.length} risks`, contractRecord.id);
+
+            setAnalysisResult({
+                ...metadata,
+                obligationsCount: savedObligations.length,
+                risksCount: savedRisks.length
+            });
+            setCreatedContractId(contractRecord.id);
+
+            // Step 5: Done
+            setProgress(100);
+            setAnalysisStep(4);
+            setIsProcessing(false);
+            setUploadComplete(true);
+
+            if (refreshContracts) refreshContracts();
+
+        } catch (error) {
+            console.error("Analysis Failed:", error);
+            setIsProcessing(false);
+            setErrorMsg(error.message || 'Failed to analyze the document.');
+        }
     };
 
     const getFileIcon = (filename = '') => {
@@ -170,16 +204,19 @@ export default function Upload({ setAppView }) {
             </div>
 
             {/* Hidden native file input */}
-            <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".pdf,.docx,.doc,.txt"
-                className="hidden"
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.docx,.doc,.txt" className="hidden" />
+
+            {errorMsg && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-start gap-2">
+                    <i className="fa-solid fa-circle-exclamation mt-0.5"></i>
+                    <div>
+                        <div className="font-bold">Analysis Error</div>
+                        <p>{errorMsg}</p>
+                    </div>
+                </div>
+            )}
 
             {!selectedFile ? (
-                /* Empty / Dropzone State */
                 <div className="space-y-6">
                     <div
                         onClick={triggerBrowse}
@@ -205,69 +242,23 @@ export default function Upload({ setAppView }) {
                             </p>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-slate-400 pt-2">
-                            <span className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-file-pdf text-rose-400"></i> PDF
-                            </span>
+                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-file-pdf text-rose-400"></i> PDF</span>
                             <span>&bull;</span>
-                            <span className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-file-word text-blue-500"></i> DOCX / DOC
-                            </span>
+                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-file-word text-blue-500"></i> DOCX / DOC</span>
                             <span>&bull;</span>
-                            <span className="flex items-center gap-1.5">
-                                <i className="fa-solid fa-file-lines text-slate-400"></i> TXT
-                            </span>
+                            <span className="flex items-center gap-1.5"><i className="fa-solid fa-file-lines text-slate-400"></i> TXT</span>
                         </div>
                         <button
                             type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                triggerBrowse();
-                            }}
+                            onClick={(e) => { e.stopPropagation(); triggerBrowse(); }}
                             className="mt-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 flex items-center gap-2 transition"
                         >
                             <i className="fa-solid fa-arrow-up-from-bracket"></i> Select Document from Computer
                         </button>
                     </div>
-
-                    {/* Quick Demo Samples */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <i className="fa-solid fa-bolt text-amber-500 text-xs"></i>
-                                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                                    Or Try a Pre-Loaded Sample Contract
-                                </h3>
-                            </div>
-                            <span className="text-[11px] text-slate-400">Quick 1-click test</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {SAMPLE_DOCUMENTS.map((doc, idx) => {
-                                const style = getFileIcon(doc.name);
-                                return (
-                                    <div
-                                        key={idx}
-                                        onClick={() => handleChooseSample(doc)}
-                                        className="p-3.5 rounded-xl border border-slate-200/80 hover:border-brand-400 hover:bg-brand-50/30 transition cursor-pointer flex items-center gap-3 group"
-                                    >
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 ${style.color}`}>
-                                            <i className={style.icon}></i>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-bold text-slate-800 truncate group-hover:text-brand-600">
-                                                {doc.name}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">{doc.size} &bull; {doc.category}</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
                 </div>
             ) : (
-                /* Document Selected / Processing State */
                 <div className="space-y-6">
-                    {/* Selected File Card */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-5">
                         <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
                             <div className="flex items-center gap-3.5">
@@ -286,69 +277,32 @@ export default function Upload({ setAppView }) {
                                     </p>
                                 </div>
                             </div>
-
                             {!isProcessing && !uploadComplete && (
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={triggerBrowse}
-                                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
-                                    >
-                                        Change File
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedFile(null)}
-                                        className="text-xs font-semibold text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                                    >
-                                        <i className="fa-solid fa-xmark"></i>
-                                    </button>
+                                    <button type="button" onClick={triggerBrowse} className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition">Change File</button>
+                                    <button type="button" onClick={() => setSelectedFile(null)} className="text-xs font-semibold text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
                             )}
                         </div>
 
-                        {/* Metadata inputs */}
                         {!uploadComplete && (
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                                        Contract Display Title
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={contractTitle}
-                                        onChange={(e) => setContractTitle(e.target.value)}
-                                        disabled={isProcessing}
-                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800"
-                                    />
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Contract Display Title</label>
+                                    <input type="text" value={contractTitle} onChange={(e) => setContractTitle(e.target.value)} disabled={isProcessing}
+                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800" />
                                 </div>
-
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                                        Contract Classification
-                                    </label>
-                                    <select
-                                        value={contractCategory}
-                                        onChange={(e) => setContractCategory(e.target.value)}
-                                        disabled={isProcessing}
-                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800"
-                                    >
-                                        {CONTRACT_TYPES.map(type => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Contract Classification</label>
+                                    <select value={contractCategory} onChange={(e) => setContractCategory(e.target.value)} disabled={isProcessing}
+                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800">
+                                        {CONTRACT_TYPES.map(type => (<option key={type} value={type}>{type}</option>))}
                                     </select>
                                 </div>
-
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                                        Priority Level
-                                    </label>
-                                    <select
-                                        value={priority}
-                                        onChange={(e) => setPriority(e.target.value)}
-                                        disabled={isProcessing}
-                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800"
-                                    >
+                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Priority Level</label>
+                                    <select value={priority} onChange={(e) => setPriority(e.target.value)} disabled={isProcessing}
+                                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50 disabled:opacity-60 font-semibold text-slate-800">
                                         <option value="Normal">Normal Review</option>
                                         <option value="High">High Urgency</option>
                                         <option value="Critical">Critical Compliance</option>
@@ -357,7 +311,6 @@ export default function Upload({ setAppView }) {
                             </div>
                         )}
 
-                        {/* Processing & Progress Section */}
                         {isProcessing && (
                             <div className="space-y-4 pt-3">
                                 <div className="flex items-center justify-between text-xs font-bold text-slate-800">
@@ -367,37 +320,16 @@ export default function Upload({ setAppView }) {
                                     </span>
                                     <span className="text-brand-600 font-mono text-sm">{progress}%</span>
                                 </div>
-
                                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all duration-300 shadow-sm"
-                                        style={{ width: `${progress}%` }}
-                                    ></div>
+                                    <div className="h-full bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all duration-300 shadow-sm" style={{ width: `${progress}%` }}></div>
                                 </div>
-
-                                {/* Step checklist */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                                     {steps.slice(0, 4).map((step, idx) => {
                                         const isDone = analysisStep > idx;
                                         const isCurrent = analysisStep === idx;
                                         return (
-                                            <div
-                                                key={idx}
-                                                className={`text-xs p-2.5 rounded-xl border flex items-center gap-2.5 transition ${
-                                                    isDone
-                                                        ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800 font-medium'
-                                                        : isCurrent
-                                                        ? 'bg-brand-50/70 border-brand-200 text-brand-800 font-bold'
-                                                        : 'bg-slate-50/50 border-slate-100 text-slate-400'
-                                                }`}
-                                            >
-                                                {isDone ? (
-                                                    <i className="fa-solid fa-circle-check text-emerald-600"></i>
-                                                ) : isCurrent ? (
-                                                    <i className="fa-solid fa-spinner fa-spin text-brand-600"></i>
-                                                ) : (
-                                                    <i className="fa-regular fa-circle text-slate-300"></i>
-                                                )}
+                                            <div key={idx} className={`text-xs p-2.5 rounded-xl border flex items-center gap-2.5 transition ${isDone ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800 font-medium' : isCurrent ? 'bg-brand-50/70 border-brand-200 text-brand-800 font-bold' : 'bg-slate-50/50 border-slate-100 text-slate-400'}`}>
+                                                {isDone ? <i className="fa-solid fa-circle-check text-emerald-600"></i> : isCurrent ? <i className="fa-solid fa-spinner fa-spin text-brand-600"></i> : <i className="fa-regular fa-circle text-slate-300"></i>}
                                                 <span className="truncate">{step.label}</span>
                                             </div>
                                         );
@@ -406,65 +338,39 @@ export default function Upload({ setAppView }) {
                             </div>
                         )}
 
-                        {/* Completed State */}
-                        {uploadComplete && (
+                        {uploadComplete && analysisResult && (
                             <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-lg shadow-sm">
                                         <i className="fa-solid fa-circle-check"></i>
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-emerald-900">
-                                            Contract Successfully Analyzed &amp; Ingested!
-                                        </h3>
+                                        <h3 className="text-sm font-bold text-emerald-900">Contract Successfully Analyzed & Saved!</h3>
                                         <p className="text-xs text-emerald-700 mt-0.5">
-                                            Extracted 8 obligations, 4 renewal deadlines, and 2 high-risk clauses.
+                                            Extracted {analysisResult.obligationsCount || 0} obligations and {analysisResult.risksCount || 0} risk items.
+                                            {analysisResult.parties && analysisResult.parties.length > 0 && ` Parties: ${analysisResult.parties.join(', ')}.`}
                                         </p>
                                     </div>
                                 </div>
-
                                 <div className="flex flex-wrap items-center gap-3 pt-1">
-                                    <button
-                                        onClick={() => setAppView('contract-details')}
-                                        className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-2 transition"
-                                    >
-                                        <i className="fa-solid fa-eye"></i> Open Document Viewer &amp; AI Clauses
+                                    <button onClick={() => { if (createdContractId) navigateToContract(createdContractId); else setAppView('contract-details'); }}
+                                        className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md shadow-brand-500/20 flex items-center gap-2 transition">
+                                        <i className="fa-solid fa-eye"></i> Open Document Viewer & AI Clauses
                                     </button>
-                                    <button
-                                        onClick={() => setAppView('obligations')}
-                                        className="bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-2 transition"
-                                    >
-                                        <i className="fa-solid fa-list-check"></i> View Extracted Obligations
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedFile(null);
-                                            setUploadComplete(false);
-                                        }}
-                                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2 transition"
-                                    >
+                                    <button onClick={() => { setSelectedFile(null); setUploadComplete(false); setAnalysisResult(null); }}
+                                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2 transition">
                                         Upload Another
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* Action buttons when file chosen and not yet processing */}
                         {!isProcessing && !uploadComplete && (
                             <div className="flex items-center justify-end gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedFile(null)}
-                                    className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={startAnalysis}
-                                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 flex items-center gap-2 transition transform hover:-translate-y-0.5"
-                                >
-                                    <i className="fa-solid fa-wand-magic-sparkles"></i> Start AI Extraction &amp; Analysis
+                                <button type="button" onClick={() => setSelectedFile(null)} className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition">Cancel</button>
+                                <button type="button" onClick={startAnalysis}
+                                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 flex items-center gap-2 transition transform hover:-translate-y-0.5">
+                                    <i className="fa-solid fa-wand-magic-sparkles"></i> Start AI Extraction & Analysis
                                 </button>
                             </div>
                         )}
