@@ -169,7 +169,7 @@ export default function AskAI({ setAppView, contractId, navigateToContract }) {
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     {/* Left Panel: Document Viewer & RAG Retrieved Chunks */}
-                    <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col h-[600px]">
+                    <div className="order-2 lg:order-1 lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col h-[340px] lg:h-[600px]">
                         <div className="bg-slate-50 p-3.5 border-b border-slate-200 flex items-center justify-between text-xs text-slate-700">
                             <span className="font-bold truncate max-w-[200px]">{contract.title}</span>
                             <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">
@@ -212,7 +212,7 @@ export default function AskAI({ setAppView, contractId, navigateToContract }) {
                     </div>
 
                     {/* Right Panel: AI Chat Thread with Citations */}
-                    <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-5 flex flex-col h-[600px] justify-between">
+                    <div className="order-1 lg:order-2 lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col h-[500px] lg:h-[600px] justify-between">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <span className="font-bold text-xs text-slate-900 flex items-center gap-2">
                                 <i className="fa-solid fa-wand-magic-sparkles text-brand-600"></i> RAG Legal Q&amp;A Agent

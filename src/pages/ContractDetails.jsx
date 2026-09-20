@@ -64,16 +64,16 @@ export default function ContractDetails({ setAppView, contractId }) {
                 </div>
             </div>
 
-            <div className="flex border-b border-slate-200 gap-6 text-xs font-semibold text-slate-500">
-                <button className="pb-2.5 border-b-2 border-brand-600 text-brand-600 font-bold flex items-center gap-2"><i className="fa-regular fa-file-lines"></i> Overview</button>
-                <button onClick={() => setAppView('obligations')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2"><i className="fa-solid fa-list-check"></i> Obligations</button>
-                <button onClick={() => setAppView('timeline')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2"><i className="fa-regular fa-calendar-days"></i> Timeline</button>
-                <button onClick={() => setAppView('ask-ai')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2"><i className="fa-solid fa-wand-magic-sparkles text-brand-600"></i> AI Insights</button>
+            <div className="flex border-b border-slate-200 gap-6 text-xs font-semibold text-slate-500 overflow-x-auto whitespace-nowrap pb-0.5">
+                <button className="pb-2.5 border-b-2 border-brand-600 text-brand-600 font-bold flex items-center gap-2 flex-shrink-0"><i className="fa-regular fa-file-lines"></i> Overview</button>
+                <button onClick={() => setAppView('obligations')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2 flex-shrink-0"><i className="fa-solid fa-list-check"></i> Obligations</button>
+                <button onClick={() => setAppView('timeline')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2 flex-shrink-0"><i className="fa-regular fa-calendar-days"></i> Timeline</button>
+                <button onClick={() => setAppView('ask-ai')} className="pb-2.5 hover:text-slate-900 flex items-center gap-2 flex-shrink-0"><i className="fa-solid fa-wand-magic-sparkles text-brand-600"></i> AI Insights</button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Document Viewer */}
-                <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col h-[650px]">
+                <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col h-[420px] lg:h-[650px]">
                     <div className="bg-slate-50 p-3 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
                         <span className="font-semibold">Document Text</span>
                     </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, setIsUserMenuOpen, user, handleLogout, alertCount = 0 }) {
+export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, setIsUserMenuOpen, user, handleLogout, alertCount = 0, setIsMobileSidebarOpen }) {
     const displayName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'User');
     const displayEmail = user?.email || '';
     const initials = displayName
@@ -13,14 +13,30 @@ export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, 
         .toUpperCase() || 'U';
 
     return (
-        <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4 z-10">
-            <div className="relative flex-1 max-w-md">
-                <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
-                <input type="text" placeholder="Search contracts, clauses, obligations, or ask a question..." className="w-full pl-9 pr-16 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50" />
-                <span className="absolute right-3 top-2.5 text-[10px] bg-slate-200 text-slate-600 font-mono px-1.5 py-0.5 rounded">Ctrl + K</span>
+        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 z-10">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                {setIsMobileSidebarOpen && (
+                    <button
+                        type="button"
+                        onClick={() => setIsMobileSidebarOpen(true)}
+                        className="lg:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition focus:outline-none flex-shrink-0"
+                        aria-label="Open navigation menu"
+                    >
+                        <i className="fa-solid fa-bars text-base"></i>
+                    </button>
+                )}
+                <div className="relative flex-1 max-w-md min-w-0">
+                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 sm:top-3 text-slate-400 text-xs"></i>
+                    <input 
+                        type="text" 
+                        placeholder="Search contracts, clauses..." 
+                        className="w-full pl-8 pr-3 sm:pr-16 py-1.5 sm:py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50" 
+                    />
+                    <span className="hidden md:inline-block absolute right-3 top-2 text-[10px] bg-slate-200 text-slate-600 font-mono px-1.5 py-0.5 rounded">Ctrl + K</span>
+                </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                 <button
                     onClick={() => setAppView('alerts')}
                     className="relative text-slate-500 hover:text-slate-800 p-2 rounded-lg hover:bg-slate-100 transition"

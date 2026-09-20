@@ -259,16 +259,16 @@ export default function Upload({ setAppView, user, refreshContracts, navigateToC
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-5">
-                        <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3.5">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-xs ${getFileIcon(selectedFile.name).color}`}>
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-xs flex-shrink-0 ${getFileIcon(selectedFile.name).color}`}>
                                     <i className={getFileIcon(selectedFile.name).icon}></i>
                                 </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="text-base font-bold text-slate-900">{selectedFile.name}</h2>
-                                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate max-w-[220px] sm:max-w-md" title={selectedFile.name}>{selectedFile.name}</h2>
+                                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                                             Ready for AI
                                         </span>
                                     </div>
@@ -278,9 +278,9 @@ export default function Upload({ setAppView, user, refreshContracts, navigateToC
                                 </div>
                             </div>
                             {!isProcessing && !uploadComplete && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-end gap-2 flex-shrink-0">
                                     <button type="button" onClick={triggerBrowse} className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition">Change File</button>
-                                    <button type="button" onClick={() => setSelectedFile(null)} className="text-xs font-semibold text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition"><i className="fa-solid fa-xmark"></i></button>
+                                    <button type="button" onClick={() => setSelectedFile(null)} className="text-xs font-semibold text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition" aria-label="Remove file"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
                             )}
                         </div>
@@ -366,11 +366,11 @@ export default function Upload({ setAppView, user, refreshContracts, navigateToC
                         )}
 
                         {!isProcessing && !uploadComplete && (
-                            <div className="flex items-center justify-end gap-3 pt-2">
-                                <button type="button" onClick={() => setSelectedFile(null)} className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition">Cancel</button>
+                            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => setSelectedFile(null)} className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition text-center">Cancel</button>
                                 <button type="button" onClick={startAnalysis}
-                                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 flex items-center gap-2 transition transform hover:-translate-y-0.5">
-                                    <i className="fa-solid fa-wand-magic-sparkles"></i> Start AI Extraction & Analysis
+                                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5">
+                                    <i className="fa-solid fa-wand-magic-sparkles"></i> Start AI Extraction &amp; Analysis
                                 </button>
                             </div>
                         )}

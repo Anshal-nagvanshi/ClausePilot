@@ -20,14 +20,14 @@ export default function LandingPage({ setMainPage, setAppView, openAuth }) {
     return (
         <div className="flex-1 overflow-y-auto bg-slate-50">
             <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
-                            <i className="fa-solid fa-file-contract text-xl"></i>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                            <i className="fa-solid fa-file-contract text-lg sm:text-xl"></i>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-2xl font-bold font-heading text-slate-900 tracking-tight leading-tight">Clause<span className="text-brand-600">Pilot</span></span>
-                            <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Smarter Contracts &bull; Safer Business</span>
+                            <span className="text-xl sm:text-2xl font-bold font-heading text-slate-900 tracking-tight leading-tight">Clause<span className="text-brand-600">Pilot</span></span>
+                            <span className="hidden sm:inline-block text-[9px] uppercase tracking-wider text-slate-400 font-bold">Smarter Contracts &bull; Safer Business</span>
                         </div>
                     </div>
 
@@ -38,11 +38,11 @@ export default function LandingPage({ setMainPage, setAppView, openAuth }) {
                         <a href="#testimonials" className="hover:text-brand-600 transition">Testimonials</a>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <button onClick={handleSignIn} className="text-sm font-semibold text-slate-700 hover:text-brand-600 px-4 py-2 rounded-xl transition border border-slate-200 hover:border-slate-300 bg-white">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                        <button onClick={handleSignIn} className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-3 sm:px-4 py-2 rounded-xl transition border border-slate-200 hover:border-slate-300 bg-white">
                             Sign In
                         </button>
-                        <button onClick={handleGetStarted} className="text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition">
+                        <button onClick={handleGetStarted} className="text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition whitespace-nowrap">
                             Get Started
                         </button>
                     </div>

@@ -20,6 +20,7 @@ export default function AppLayout({
     refreshContracts, contractsRefreshKey, handleLogout
 }) {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [alertCount, setAlertCount] = useState(0);
 
     const refreshAlertCount = useCallback(async () => {
@@ -41,8 +42,23 @@ export default function AppLayout({
     };
 
     return (
-        <div className="flex-1 flex overflow-hidden">
-            <Sidebar appView={appView} setAppView={setAppView} alertCount={alertCount} />
+        <div className="flex-1 flex overflow-hidden relative">
+            {/* Mobile backdrop */}
+            {isMobileSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+                    onClick={() => setIsMobileSidebarOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+
+            <Sidebar
+                appView={appView}
+                setAppView={setAppView}
+                alertCount={alertCount}
+                isOpen={isMobileSidebarOpen}
+                setIsOpen={setIsMobileSidebarOpen}
+            />
 
             <div className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
                 <TopHeader
@@ -50,12 +66,14 @@ export default function AppLayout({
                     switchMainPage={switchMainPage}
                     isUserMenuOpen={isUserMenuOpen}
                     setIsUserMenuOpen={setIsUserMenuOpen}
+                    isMobileSidebarOpen={isMobileSidebarOpen}
+                    setIsMobileSidebarOpen={setIsMobileSidebarOpen}
                     user={user}
                     handleLogout={handleLogout}
                     alertCount={alertCount}
                 />
 
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
                     {appView === 'dashboard' && (
                         <Dashboard
                             setAppView={setAppView}

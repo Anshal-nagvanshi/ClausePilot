@@ -107,12 +107,12 @@ ${aiReport ? `\nAI EXECUTIVE ANALYSIS:\n${aiReport}` : ''}
                     <p className="text-xs text-slate-500 mt-0.5">Comprehensive audit, risk posture, and AI-powered executive report.</p>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {contracts.length > 0 && (
                         <select
                             value={selectedId || ''}
                             onChange={(e) => setSelectedId(e.target.value)}
-                            className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            className="w-full sm:w-auto text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                             {contracts.map(c => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
@@ -120,7 +120,7 @@ ${aiReport ? `\nAI EXECUTIVE ANALYSIS:\n${aiReport}` : ''}
                         </select>
                     )}
                     {contract && (
-                        <>
+                        <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 onClick={handleCopyReport}
                                 className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-2xs"
@@ -134,7 +134,7 @@ ${aiReport ? `\nAI EXECUTIVE ANALYSIS:\n${aiReport}` : ''}
                             >
                                 <i className="fa-solid fa-print"></i> Print
                             </button>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>

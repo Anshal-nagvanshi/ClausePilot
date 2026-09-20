@@ -101,7 +101,7 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
                         <select
                             value={selectedId || ''}
                             onChange={(e) => setSelectedId(e.target.value)}
-                            className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            className="w-full sm:w-auto text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                             {contracts.map(c => (
                                 <option key={c.id} value={c.id}>{c.title}</option>
@@ -111,7 +111,7 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
                     <select 
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"
+                        className="w-full sm:w-auto text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"
                     >
                         {categories.map(c => (
                             <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>
@@ -120,7 +120,7 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
                     <select 
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"
+                        className="w-full sm:w-auto text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700"
                     >
                         <option value="All">All Statuses</option>
                         <option value="Upcoming">Upcoming</option>

@@ -94,7 +94,7 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
     return (
         <div className="flex-1 bg-white overflow-y-auto">
             <div className="min-h-full flex flex-col lg:flex-row">
-                <div className="lg:w-1/2 bg-gradient-to-br from-brand-900 via-brand-800 to-slate-900 text-white p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
+                <div className="lg:w-1/2 bg-gradient-to-br from-brand-900 via-brand-800 to-slate-900 text-white p-5 sm:p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
                     <div className="flex items-center justify-between z-10">
                         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setMainPage('landing')}>
                             <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
@@ -107,9 +107,9 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                         </button>
                     </div>
 
-                    <div className="my-12 z-10 max-w-lg">
+                    <div className="hidden lg:block my-12 z-10 max-w-lg">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold mb-4 border border-brand-400/20">
-                            <i className="fa-solid fa-bolt text-amber-400"></i> Supabase Auth & Cloud Database Connected
+                            <i className="fa-solid fa-bolt text-amber-400"></i> Supabase Auth &amp; Cloud Database Connected
                         </div>
                         <h2 className="text-3xl lg:text-4xl font-extrabold font-heading mb-4 leading-tight">
                             Turn Complex Contracts into Clear Insights
@@ -124,7 +124,7 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                         </div>
                     </div>
 
-                    <div className="z-10 text-xs text-brand-300 flex items-center justify-between border-t border-white/10 pt-4">
+                    <div className="hidden lg:flex z-10 text-xs text-brand-300 items-center justify-between border-t border-white/10 pt-4">
                         <span>&copy; 2026 ClausePilot Inc.</span>
                         <span className="flex gap-4">
                             <a href="#" className="hover:underline">Privacy Policy</a>
@@ -133,7 +133,7 @@ export default function LoginPage({ setMainPage, setAppView, setUser, initialMod
                     </div>
                 </div>
 
-                <div className="lg:w-1/2 p-8 lg:p-16 flex items-center justify-center bg-slate-50">
+                <div className="lg:w-1/2 p-6 sm:p-8 lg:p-16 flex items-center justify-center bg-slate-50 flex-1">
                     <div className="w-full max-w-md space-y-6">
                         <div className="text-center">
                             <h2 className="text-2xl font-bold font-heading text-slate-900">Welcome to ClausePilot</h2>
