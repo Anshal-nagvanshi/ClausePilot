@@ -31,13 +31,6 @@ export default function LandingPage({ setMainPage, setAppView, openAuth }) {
                         </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-                        <a href="#features" className="hover:text-brand-600 transition">Features</a>
-                        <a href="#how-it-works" className="hover:text-brand-600 transition">How It Works</a>
-                        <a href="#pricing" className="hover:text-brand-600 transition">Pricing</a>
-                        <a href="#testimonials" className="hover:text-brand-600 transition">Testimonials</a>
-                    </div>
-
                     <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                         <button onClick={handleSignIn} className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 px-3 sm:px-4 py-2 rounded-xl transition border border-slate-200 hover:border-slate-300 bg-white">
                             Sign In
@@ -66,9 +59,6 @@ export default function LandingPage({ setMainPage, setAppView, openAuth }) {
                             <div className="flex flex-wrap items-center gap-4 pt-2">
                                 <button onClick={handleGetStarted} className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3.5 rounded-xl shadow-xl shadow-brand-500/30 flex items-center gap-2 transition transform hover:-translate-y-0.5">
                                     Get Started <i className="fa-solid fa-arrow-right text-xs"></i>
-                                </button>
-                                <button onClick={handleSignIn} className="bg-white hover:bg-slate-100 text-slate-800 font-semibold px-6 py-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2 transition">
-                                    <i className="fa-regular fa-circle-play text-brand-600 text-lg"></i> Watch Demo
                                 </button>
                             </div>
 
