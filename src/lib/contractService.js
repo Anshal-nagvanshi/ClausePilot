@@ -123,6 +123,65 @@ export async function updateObligation(obligationId, updates) {
     return data;
 }
 
+/**
+ * Accurately parses due date strings and checks if the due date is in the past.
+ * Sets the boundary to end of the day (23:59:59.999) so items due today are not flagged prematurely.
+ */
+export function isDueDateOverdue(dueDateStr) {
+    if (!dueDateStr || typeof dueDateStr !== 'string') return false;
+    const clean = dueDateStr.trim();
+    if (!clean || ['not specified', 'ongoing', 'n/a', 'none', 'tbd', 'to be determined'].includes(clean.toLowerCase())) {
+        return false;
+    }
+
+    // Explicit YYYY-MM-DD match to prevent timezone skew from UTC midnight parsing
+    const ymd = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (ymd) {
+        const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 23, 59, 59, 999);
+        if (!isNaN(d.getTime())) {
+            return d.getTime() < Date.now();
+        }
+    }
+
+    // Support DD/MM/YYYY or MM/DD/YYYY
+    const dmy = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (dmy) {
+        let d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]), 23, 59, 59, 999);
+        if (isNaN(d.getTime()) || Number(dmy[2]) > 12) {
+            d = new Date(Number(dmy[3]), Number(dmy[1]) - 1, Number(dmy[2]), 23, 59, 59, 999);
+        }
+        if (!isNaN(d.getTime())) {
+            return d.getTime() < Date.now();
+        }
+    }
+
+    // Direct timestamp or textual date (e.g. "October 15, 2025")
+    const parsed = Date.parse(clean);
+    if (!isNaN(parsed)) {
+        const d = new Date(parsed);
+        d.setHours(23, 59, 59, 999);
+        return d.getTime() < Date.now();
+    }
+
+    return false;
+}
+
+/**
+ * Returns the effective status of an obligation:
+ * - 'Completed' if status is explicitly 'Completed'
+ * - 'Overdue' if status is 'Overdue' OR (not completed AND due_date has passed)
+ * - Otherwise returns original status or defaults to 'Upcoming'
+ */
+export function getEffectiveObligationStatus(obligation) {
+    if (!obligation) return 'Upcoming';
+    if (obligation.status === 'Completed') return 'Completed';
+    if (obligation.status === 'Overdue' || isDueDateOverdue(obligation.due_date)) {
+        return 'Overdue';
+    }
+    if (obligation.status === 'In Progress') return 'In Progress';
+    return 'Upcoming';
+}
+
 // ========================
 // RISKS
 // ========================
@@ -264,8 +323,8 @@ export async function getDashboardStats() {
         return exp >= now && exp <= thirtyDaysFromNow;
     }).length;
 
-    const openObligations = obligations.filter(o => o.status !== 'Completed').length;
-    const overdueObligations = obligations.filter(o => o.status === 'Overdue').length;
+    const openObligations = obligations.filter(o => getEffectiveObligationStatus(o) !== 'Completed').length;
+    const overdueObligations = obligations.filter(o => getEffectiveObligationStatus(o) === 'Overdue').length;
     const highRisks = risks.filter(r => r.severity === 'High').length;
 
     // Contracts by type
@@ -342,13 +401,14 @@ export async function getAlerts() {
             }
         });
 
-        // 2. Overdue Obligations
+        // 2. Obligations (Overdue & Due Soon)
         obligations.forEach(o => {
-            if (o.status === 'Overdue') {
+            const effectiveStatus = getEffectiveObligationStatus(o);
+            if (effectiveStatus === 'Overdue') {
                 generatedAlerts.push({
                     id: `ob-overdue-${o.id}`,
                     title: 'Overdue Obligation',
-                    description: `${o.description} (Responsible: ${o.responsible_party}) is marked as overdue.`,
+                    description: `Due date passed (${o.due_date || 'Past date'}): "${o.description}". Assigned to ${o.responsible_party}.`,
                     severity: 'Urgent',
                     badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
                     icon: 'fa-solid fa-circle-exclamation',
@@ -357,23 +417,11 @@ export async function getAlerts() {
                     contractTitle: o.contracts?.title || 'Contract',
                     date: o.due_date
                 });
-            } else if (o.status !== 'Completed' && o.due_date && o.due_date !== 'Not specified') {
-                const d = new Date(o.due_date);
-                if (!isNaN(d)) {
-                    if (d < now) {
-                        generatedAlerts.push({
-                            id: `ob-pastdue-${o.id}`,
-                            title: 'Overdue Obligation',
-                            description: `Due date passed (${o.due_date}): "${o.description}".`,
-                            severity: 'Urgent',
-                            badgeColor: 'bg-rose-100 text-rose-700 border-rose-200',
-                            icon: 'fa-solid fa-circle-exclamation',
-                            iconBg: 'bg-rose-500 text-white',
-                            contractId: o.contract_id,
-                            contractTitle: o.contracts?.title || 'Contract',
-                            date: o.due_date
-                        });
-                    } else if (d <= new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)) {
+            } else if (effectiveStatus === 'Upcoming' && o.due_date && o.due_date !== 'Not specified') {
+                const parsed = Date.parse(o.due_date);
+                if (!isNaN(parsed)) {
+                    const d = new Date(parsed);
+                    if (d <= new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)) {
                         generatedAlerts.push({
                             id: `ob-due-soon-${o.id}`,
                             title: 'Obligation Due Soon',

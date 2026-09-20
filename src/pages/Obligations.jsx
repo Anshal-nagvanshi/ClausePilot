@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getObligationsByContract, getContractById, updateObligation } from '../lib/contractService';
+import { getObligationsByContract, getContractById, updateObligation, getEffectiveObligationStatus, isDueDateOverdue } from '../lib/contractService';
 
 export default function Obligations({ setAppView, contractId }) {
     const chartRef = useRef(null);
@@ -22,26 +22,60 @@ export default function Obligations({ setAppView, contractId }) {
 
     useEffect(() => {
         if (!chartRef.current || !window.Chart || obligations.length === 0) return;
-        const statusCounts = { Upcoming: 0, Overdue: 0, Active: 0, Completed: 0 };
-        obligations.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
+        const statusCounts = { Upcoming: 0, Overdue: 0, Completed: 0 };
+        obligations.forEach(o => {
+            const s = getEffectiveObligationStatus(o);
+            if (statusCounts[s] !== undefined) {
+                statusCounts[s]++;
+            } else {
+                statusCounts[s] = 1;
+            }
+        });
+
+        const labels = Object.keys(statusCounts).filter(k => statusCounts[k] > 0);
+        const data = labels.map(k => statusCounts[k]);
+        const colorMap = {
+            Upcoming: '#3b82f6',
+            Overdue: '#f43f5e',
+            Completed: '#10b981'
+        };
 
         const chart = new window.Chart(chartRef.current, {
             type: 'doughnut',
             data: {
-                labels: Object.keys(statusCounts),
-                datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#10b981', '#f43f5e', '#3b82f6', '#a855f7'], borderWidth: 2, borderColor: '#fff' }]
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: labels.map(l => colorMap[l] || '#94a3b8'),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
             },
-            options: { cutout: '72%', plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }
+            options: {
+                cutout: '72%',
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 11 } }
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
         });
         return () => chart.destroy();
     }, [obligations]);
 
     const toggleStatus = async (ob) => {
-        const newStatus = ob.status === 'Completed' ? 'Upcoming' : 'Completed';
+        const currentEffective = getEffectiveObligationStatus(ob);
+        const newStatus = currentEffective === 'Completed'
+            ? (isDueDateOverdue(ob.due_date) ? 'Overdue' : 'Upcoming')
+            : 'Completed';
         try {
             await updateObligation(ob.id, { status: newStatus });
             setObligations(prev => prev.map(o => o.id === ob.id ? { ...o, status: newStatus } : o));
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error('Failed to update obligation status:', err); }
     };
 
     if (loading) return <div className="flex items-center justify-center h-64"><i className="fa-solid fa-spinner fa-spin text-brand-600 text-2xl"></i></div>;
@@ -51,11 +85,11 @@ export default function Obligations({ setAppView, contractId }) {
     }
 
     const total = obligations.length;
-    const upcoming = obligations.filter(o => o.status === 'Upcoming').length;
-    const overdue = obligations.filter(o => o.status === 'Overdue').length;
-    const completed = obligations.filter(o => o.status === 'Completed').length;
+    const upcoming = obligations.filter(o => getEffectiveObligationStatus(o) === 'Upcoming').length;
+    const overdue = obligations.filter(o => getEffectiveObligationStatus(o) === 'Overdue').length;
+    const completed = obligations.filter(o => getEffectiveObligationStatus(o) === 'Completed').length;
 
-    const statusColor = (s) => s === 'Upcoming' ? 'bg-emerald-100 text-emerald-800' : s === 'Overdue' ? 'bg-rose-100 text-rose-800' : s === 'Active' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800';
+    const statusColor = (s) => s === 'Upcoming' ? 'bg-blue-100 text-blue-800' : s === 'Overdue' ? 'bg-rose-100 text-rose-800' : s === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800';
     const catColor = (c) => c === 'Payment' ? 'bg-purple-50 text-purple-700' : c === 'Service Delivery' ? 'bg-blue-50 text-brand-700' : c === 'Renewal' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
 
     return (
@@ -97,21 +131,32 @@ export default function Obligations({ setAppView, contractId }) {
                                 <tr><th className="py-3 px-4 w-10">#</th><th className="py-3 px-4">Obligation</th><th className="py-3 px-4">Responsible Party</th><th className="py-3 px-4">Due Date</th><th className="py-3 px-4">Status</th><th className="py-3 px-4">Category</th><th className="py-3 px-4 text-right">Actions</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                                {obligations.map((ob, idx) => (
-                                    <tr key={ob.id}>
-                                        <td className="py-3 px-4 text-slate-400">{idx + 1}</td>
-                                        <td className="py-3 px-4 font-bold text-slate-900 max-w-xs">{ob.description}</td>
-                                        <td className="py-3 px-4">{ob.responsible_party || '—'}</td>
-                                        <td className="py-3 px-4">{ob.due_date || '—'}</td>
-                                        <td className="py-3 px-4"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor(ob.status)}`}>{ob.status}</span></td>
-                                        <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${catColor(ob.category)}`}>{ob.category || '—'}</span></td>
-                                        <td className="py-3 px-4 text-right">
-                                            <button onClick={() => toggleStatus(ob)} className="text-brand-600 hover:text-brand-800 font-bold text-[10px]">
-                                                {ob.status === 'Completed' ? 'Undo' : 'Complete'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {obligations.map((ob, idx) => {
+                                    const effective = getEffectiveObligationStatus(ob);
+                                    return (
+                                        <tr key={ob.id}>
+                                            <td className="py-3 px-4 text-slate-400">{idx + 1}</td>
+                                            <td className="py-3 px-4 font-bold text-slate-900 max-w-xs">{ob.description}</td>
+                                            <td className="py-3 px-4">{ob.responsible_party || '—'}</td>
+                                            <td className="py-3 px-4">{ob.due_date || '—'}</td>
+                                            <td className="py-3 px-4"><span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${statusColor(effective)}`}>{effective}</span></td>
+                                            <td className="py-3 px-4"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${catColor(ob.category)}`}>{ob.category || '—'}</span></td>
+                                            <td className="py-3 px-4 text-right">
+                                                <button
+                                                    onClick={() => toggleStatus(ob)}
+                                                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition inline-flex items-center gap-1.5 ${
+                                                        effective === 'Completed'
+                                                            ? 'text-slate-600 bg-slate-100 hover:bg-slate-200'
+                                                            : 'text-white bg-brand-600 hover:bg-brand-700 shadow-2xs'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${effective === 'Completed' ? 'fa-rotate-left' : 'fa-check'}`}></i>
+                                                    <span>{effective === 'Completed' ? 'Undo' : 'Complete'}</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

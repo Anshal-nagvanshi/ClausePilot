@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getContracts, getContractById, getObligationsByContract } from '../lib/contractService';
+import { getContracts, getContractById, getObligationsByContract, updateObligation, getEffectiveObligationStatus, isDueDateOverdue } from '../lib/contractService';
 
 export default function Timeline({ setAppView, contractId, navigateToContract }) {
     const [contracts, setContracts] = useState([]);
@@ -53,24 +53,29 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
         loadContractData();
     }, [selectedId]);
 
-    // Calculate timeline stats
-    const now = new Date();
-    const upcomingCount = obligations.filter(o => o.status !== 'Completed' && o.status !== 'Overdue').length;
-    const overdueCount = obligations.filter(o => {
-        if (o.status === 'Overdue') return true;
-        if (o.due_date && o.due_date !== 'Not specified' && o.status !== 'Completed') {
-            const d = new Date(o.due_date);
-            return !isNaN(d) && d < now;
-        }
-        return false;
-    }).length;
+    // Calculate timeline stats accurately
+    const upcomingCount = obligations.filter(o => getEffectiveObligationStatus(o) === 'Upcoming').length;
+    const overdueCount = obligations.filter(o => getEffectiveObligationStatus(o) === 'Overdue').length;
+    const completedCount = obligations.filter(o => getEffectiveObligationStatus(o) === 'Completed').length;
 
-    // Filter obligations
+    // Filter obligations using unified effective status
     const filteredObligations = obligations.filter(item => {
+        const effective = getEffectiveObligationStatus(item);
         const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
-        const matchesStatus = filterStatus === 'All' || item.status === filterStatus;
+        const matchesStatus = filterStatus === 'All' || effective === filterStatus;
         return matchesCategory && matchesStatus;
     });
+
+    const toggleStatus = async (ob) => {
+        const currentEffective = getEffectiveObligationStatus(ob);
+        const newStatus = currentEffective === 'Completed'
+            ? (isDueDateOverdue(ob.due_date) ? 'Overdue' : 'Upcoming')
+            : 'Completed';
+        try {
+            await updateObligation(ob.id, { status: newStatus });
+            setObligations(prev => prev.map(o => o.id === ob.id ? { ...o, status: newStatus } : o));
+        } catch (err) { console.error('Failed to update obligation status:', err); }
+    };
 
     const categories = ['All', ...new Set(obligations.map(o => o.category).filter(Boolean))];
 
@@ -148,7 +153,7 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
             ) : (
                 <>
                     {/* Stat Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                         <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
                                 <i className="fa-regular fa-calendar-check"></i>
@@ -183,13 +188,23 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
                             </div>
                         </div>
 
-                        <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-100 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                        <div className={`p-4 rounded-2xl border flex items-center gap-3 ${overdueCount > 0 ? 'bg-rose-50/80 border-rose-200' : 'bg-amber-50/60 border-amber-100'}`}>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${overdueCount > 0 ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>
                                 <i className="fa-solid fa-triangle-exclamation"></i>
                             </div>
                             <div>
-                                <div className="text-base font-extrabold text-slate-900">{overdueCount}</div>
+                                <div className={`text-base font-extrabold ${overdueCount > 0 ? 'text-rose-900' : 'text-slate-900'}`}>{overdueCount}</div>
                                 <div className="text-[10px] text-slate-500 font-semibold">Overdue Items</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-teal-50/60 p-4 rounded-2xl border border-teal-100 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center font-bold">
+                                <i className="fa-regular fa-circle-check"></i>
+                            </div>
+                            <div>
+                                <div className="text-base font-extrabold text-slate-900">{completedCount}</div>
+                                <div className="text-[10px] text-slate-500 font-semibold">Completed Milestones</div>
                             </div>
                         </div>
                     </div>
@@ -219,70 +234,106 @@ export default function Timeline({ setAppView, contractId, navigateToContract })
                                 <p className="text-xs text-slate-400 py-8 text-center">No obligations or milestones match current filters.</p>
                             ) : viewMode === 'timeline' ? (
                                 <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                                    {filteredObligations.map((item, idx) => (
-                                        <div key={item.id || idx} className="relative flex items-start gap-4">
-                                            <div className={`absolute -left-6 top-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-[9px] text-white shadow-xs ${
-                                                item.status === 'Completed' ? 'bg-emerald-500' :
-                                                item.status === 'Overdue' ? 'bg-rose-500' :
-                                                'bg-brand-500'
-                                            }`}>
-                                                <i className={`fa-solid ${
-                                                    item.status === 'Completed' ? 'fa-check' :
-                                                    item.status === 'Overdue' ? 'fa-exclamation' :
-                                                    'fa-circle'
-                                                }`}></i>
-                                            </div>
-
-                                            <div className="flex-1 bg-slate-50 hover:bg-slate-100/80 transition p-3.5 rounded-xl border border-slate-200/80">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs font-bold text-slate-900">{item.description}</span>
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                                                        item.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                        item.status === 'Overdue' ? 'bg-rose-100 text-rose-700' :
-                                                        'bg-blue-100 text-brand-700'
-                                                    }`}>
-                                                        {item.status || 'Upcoming'}
-                                                    </span>
+                                    {filteredObligations.map((item, idx) => {
+                                        const effective = getEffectiveObligationStatus(item);
+                                        return (
+                                            <div key={item.id || idx} className="relative flex items-start gap-4">
+                                                <div className={`absolute -left-6 top-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-[9px] text-white shadow-xs ${
+                                                    effective === 'Completed' ? 'bg-emerald-500' :
+                                                    effective === 'Overdue' ? 'bg-rose-500' :
+                                                    'bg-brand-500'
+                                                }`}>
+                                                    <i className={`fa-solid ${
+                                                        effective === 'Completed' ? 'fa-check' :
+                                                        effective === 'Overdue' ? 'fa-triangle-exclamation' :
+                                                        'fa-clock'
+                                                    }`}></i>
                                                 </div>
 
-                                                <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-slate-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <i className="fa-regular fa-calendar text-slate-400"></i>
-                                                        Due: <strong className="text-slate-700">{item.due_date || 'No date set'}</strong>
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <i className="fa-regular fa-user text-slate-400"></i>
-                                                        Party: <strong className="text-slate-700">{item.responsible_party || 'Unassigned'}</strong>
-                                                    </span>
-                                                    {item.category && (
-                                                        <span className="bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded text-[10px] font-medium">
-                                                            {item.category}
+                                                <div className="flex-1 bg-slate-50 hover:bg-slate-100/80 transition p-3.5 rounded-xl border border-slate-200/80">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="text-xs font-bold text-slate-900">{item.description}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+                                                                effective === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                                                                effective === 'Overdue' ? 'bg-rose-100 text-rose-800' :
+                                                                'bg-blue-100 text-blue-800'
+                                                            }`}>
+                                                                {effective}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleStatus(item)}
+                                                                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition inline-flex items-center gap-1.5 ${
+                                                                    effective === 'Completed'
+                                                                        ? 'text-slate-600 bg-white hover:bg-slate-200 border border-slate-200'
+                                                                        : 'text-white bg-brand-600 hover:bg-brand-700 shadow-2xs'
+                                                                }`}
+                                                                title={effective === 'Completed' ? 'Undo completion' : 'Mark obligation as completed'}
+                                                            >
+                                                                <i className={`fa-solid ${effective === 'Completed' ? 'fa-rotate-left' : 'fa-check'}`}></i>
+                                                                <span>{effective === 'Completed' ? 'Undo' : 'Complete'}</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-slate-500">
+                                                        <span className="flex items-center gap-1">
+                                                            <i className="fa-regular fa-calendar text-slate-400"></i>
+                                                            Due: <strong className="text-slate-700">{item.due_date || 'No date set'}</strong>
                                                         </span>
-                                                    )}
+                                                        <span className="flex items-center gap-1">
+                                                            <i className="fa-regular fa-user text-slate-400"></i>
+                                                            Party: <strong className="text-slate-700">{item.responsible_party || 'Unassigned'}</strong>
+                                                        </span>
+                                                        {item.category && (
+                                                            <span className="bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded text-[10px] font-medium">
+                                                                {item.category}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="divide-y divide-slate-100 text-xs">
-                                    {filteredObligations.map((item, idx) => (
-                                        <div key={item.id || idx} className="py-3 flex items-center justify-between gap-4">
-                                            <div>
-                                                <div className="font-bold text-slate-900">{item.description}</div>
-                                                <div className="text-[11px] text-slate-500 mt-0.5">
-                                                    Responsible: {item.responsible_party} &bull; Due: {item.due_date}
+                                    {filteredObligations.map((item, idx) => {
+                                        const effective = getEffectiveObligationStatus(item);
+                                        return (
+                                            <div key={item.id || idx} className="py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+                                                <div className="space-y-0.5">
+                                                    <div className="font-bold text-slate-900">{item.description}</div>
+                                                    <div className="text-[11px] text-slate-500">
+                                                        Responsible: <strong className="text-slate-700">{item.responsible_party}</strong> &bull; Due: <strong className="text-slate-700">{item.due_date}</strong>
+                                                        {item.category && ` &bull; Category: ${item.category}`}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                                        effective === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                                                        effective === 'Overdue' ? 'bg-rose-100 text-rose-800' :
+                                                        'bg-blue-100 text-blue-800'
+                                                    }`}>
+                                                        {effective}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleStatus(item)}
+                                                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition inline-flex items-center gap-1.5 ${
+                                                            effective === 'Completed'
+                                                                ? 'text-slate-600 bg-white hover:bg-slate-200 border border-slate-200'
+                                                                : 'text-white bg-brand-600 hover:bg-brand-700 shadow-2xs'
+                                                        }`}
+                                                    >
+                                                        <i className={`fa-solid ${effective === 'Completed' ? 'fa-rotate-left' : 'fa-check'}`}></i>
+                                                        <span>{effective === 'Completed' ? 'Undo' : 'Complete'}</span>
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                                                item.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                item.status === 'Overdue' ? 'bg-rose-100 text-rose-700' :
-                                                'bg-blue-100 text-brand-700'
-                                            }`}>
-                                                {item.status}
-                                            </span>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

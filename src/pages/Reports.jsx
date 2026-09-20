@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getContracts, getContractById, getRisksByContract, getObligationsByContract } from '../lib/contractService';
+import { getContracts, getContractById, getRisksByContract, getObligationsByContract, getEffectiveObligationStatus } from '../lib/contractService';
 import { generateReport } from '../lib/aiService';
 
-export default function Reports({ setAppView, contractId, navigateToContract }) {
+export default function Reports({ setAppView, contractId, _navigateToContract }) {
     const [contracts, setContracts] = useState([]);
     const [selectedId, setSelectedId] = useState(contractId || null);
     const [contract, setContract] = useState(null);
@@ -309,25 +309,28 @@ ${aiReport ? `\nAI EXECUTIVE ANALYSIS:\n${aiReport}` : ''}
                         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
                             <h3 className="text-sm font-bold font-heading text-slate-900">Key Obligations &amp; Compliance</h3>
                             <div className="divide-y divide-slate-100 text-xs">
-                                {obligations.map((ob, idx) => (
-                                    <div key={ob.id || idx} className="py-3 flex items-center justify-between gap-4">
-                                        <div className="space-y-0.5">
-                                            <div className="font-bold text-slate-900">{ob.description}</div>
-                                            <div className="text-[11px] text-slate-500">
-                                                Party: <strong className="text-slate-700">{ob.responsible_party}</strong> &bull; 
-                                                Due: <strong className="text-slate-700">{ob.due_date}</strong>
-                                                {ob.category && ` &bull; Category: ${ob.category}`}
+                                {obligations.map((ob, idx) => {
+                                    const effective = getEffectiveObligationStatus(ob);
+                                    return (
+                                        <div key={ob.id || idx} className="py-3 flex items-center justify-between gap-4">
+                                            <div className="space-y-0.5">
+                                                <div className="font-bold text-slate-900">{ob.description}</div>
+                                                <div className="text-[11px] text-slate-500">
+                                                    Party: <strong className="text-slate-700">{ob.responsible_party}</strong> &bull; 
+                                                    Due: <strong className="text-slate-700">{ob.due_date}</strong>
+                                                    {ob.category && ` &bull; Category: ${ob.category}`}
+                                                </div>
                                             </div>
+                                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                                                effective === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                                                effective === 'Overdue' ? 'bg-rose-100 text-rose-800' :
+                                                'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {effective}
+                                            </span>
                                         </div>
-                                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
-                                            ob.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
-                                            ob.status === 'Overdue' ? 'bg-rose-100 text-rose-700' :
-                                            'bg-blue-100 text-brand-700'
-                                        }`}>
-                                            {ob.status}
-                                        </span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
