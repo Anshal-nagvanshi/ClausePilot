@@ -13,7 +13,7 @@ export default function TopHeader({ setAppView, switchMainPage, isUserMenuOpen, 
         .toUpperCase() || 'U';
 
     return (
-        <header className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 z-10">
+        <header className="print:hidden bg-white border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 z-10">
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 {setIsMobileSidebarOpen && (
                     <button

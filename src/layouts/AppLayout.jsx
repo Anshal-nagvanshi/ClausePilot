@@ -42,11 +42,11 @@ export default function AppLayout({
     };
 
     return (
-        <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 flex overflow-hidden relative print:overflow-visible print:h-auto print:block">
             {/* Mobile backdrop */}
             {isMobileSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 lg:hidden transition-opacity print:hidden"
                     onClick={() => setIsMobileSidebarOpen(false)}
                     aria-hidden="true"
                 />
@@ -60,7 +60,7 @@ export default function AppLayout({
                 setIsOpen={setIsMobileSidebarOpen}
             />
 
-            <div className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden print:bg-white print:overflow-visible print:block print:h-auto">
                 <TopHeader
                     setAppView={setAppView}
                     switchMainPage={switchMainPage}
@@ -73,7 +73,7 @@ export default function AppLayout({
                     alertCount={alertCount}
                 />
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar print:p-0 print:overflow-visible print:block print:h-auto">
                     {appView === 'dashboard' && (
                         <Dashboard
                             setAppView={setAppView}

@@ -16,6 +16,7 @@ const NAV_ITEMS = [
 export default function Sidebar({ appView, setAppView, alertCount = 0, isOpen = false, setIsOpen }) {
     return (
         <aside className={`
+            print:hidden
             fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0
             transform transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none
             lg:static lg:w-64 lg:translate-x-0
